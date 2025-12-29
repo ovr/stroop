@@ -1,5 +1,6 @@
 //! Register-based bytecode virtual machine.
 
+use std::ops::{Index, IndexMut};
 use crate::error::RuntimeError;
 use crate::value::Value;
 use stroop_bytecode::{Addr32, CompiledModule, FuncType, Instruction};
@@ -22,10 +23,44 @@ struct Label {
     is_loop: bool,
 }
 
+/// Virtual registers indexed by u8.
+#[derive(Debug, Clone, Copy)]
+pub struct Registers<T: Copy>([T; 256]);
+
+impl<T: Copy + Default> Default for Registers<T> {
+    fn default() -> Self {
+        Self([T::default(); 256])
+    }
+}
+
+impl<T: Copy> Registers<T> {
+    pub fn new(init: T) -> Self {
+        Self([init; 256])
+    }
+}
+
+impl<T: Copy> Index<u8> for Registers<T> {
+    type Output = T;
+
+    #[inline(always)]
+    fn index(&self, idx: u8) -> &T {
+        // Safety: u8 is always < 256
+        unsafe { self.0.get_unchecked(idx as usize) }
+    }
+}
+
+impl<T: Copy> IndexMut<u8> for Registers<T> {
+    #[inline(always)]
+    fn index_mut(&mut self, idx: u8) -> &mut T {
+        // Safety: u8 is always < 256
+        unsafe { self.0.get_unchecked_mut(idx as usize) }
+    }
+}
+
 /// Register-based bytecode virtual machine.
 pub struct BytecodeVm {
-    /// Fixed-size register file (256 registers).
-    regs: [Value; 256],
+    /// Fixed-size registers (256 registers).
+    regs: Registers<Value>,
     /// Label stack for control flow.
     label_stack: Vec<Label>,
     /// Imported functions.
@@ -42,7 +77,7 @@ impl BytecodeVm {
     /// Create a new register-based VM.
     pub fn new() -> Self {
         Self {
-            regs: [Value::I32(0); 256],
+            regs: Registers::new(Value::I32(0)),
             label_stack: Vec::with_capacity(32),
             imports: Vec::new(),
         }
@@ -75,553 +110,553 @@ impl BytecodeVm {
             match code[pc] {
                 // Constants
                 Instruction::LoadConstI32 { dst, value } => {
-                    self.regs[dst as usize] = Value::I32(value);
+                    self.regs[dst] = Value::I32(value);
                     pc += 1;
                 }
                 Instruction::LoadConstI64 { dst, index } => {
                     let value = module.constant_pool[index as usize].as_i64();
-                    self.regs[dst as usize] = Value::I64(value);
+                    self.regs[dst] = Value::I64(value);
                     pc += 1;
                 }
                 Instruction::LoadConstF32 { dst, value } => {
-                    self.regs[dst as usize] = Value::F32(value);
+                    self.regs[dst] = Value::F32(value);
                     pc += 1;
                 }
                 Instruction::LoadConstF64 { dst, index } => {
                     let value = module.constant_pool[index as usize].as_f64();
-                    self.regs[dst as usize] = Value::F64(value);
+                    self.regs[dst] = Value::F64(value);
                     pc += 1;
                 }
 
                 // Register move
                 Instruction::Mov { dst, src } => {
-                    self.regs[dst as usize] = self.regs[src as usize];
+                    self.regs[dst] = self.regs[src];
                     pc += 1;
                 }
 
                 // i32 arithmetic
                 Instruction::I32Add { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_i32();
-                    let b = self.regs[rhs as usize].as_i32();
-                    self.regs[dst as usize] = Value::I32(a.wrapping_add(b));
+                    let a = self.regs[lhs].as_i32();
+                    let b = self.regs[rhs].as_i32();
+                    self.regs[dst] = Value::I32(a.wrapping_add(b));
                     pc += 1;
                 }
                 Instruction::I32Sub { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_i32();
-                    let b = self.regs[rhs as usize].as_i32();
-                    self.regs[dst as usize] = Value::I32(a.wrapping_sub(b));
+                    let a = self.regs[lhs].as_i32();
+                    let b = self.regs[rhs].as_i32();
+                    self.regs[dst] = Value::I32(a.wrapping_sub(b));
                     pc += 1;
                 }
                 Instruction::I32Mul { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_i32();
-                    let b = self.regs[rhs as usize].as_i32();
-                    self.regs[dst as usize] = Value::I32(a.wrapping_mul(b));
+                    let a = self.regs[lhs].as_i32();
+                    let b = self.regs[rhs].as_i32();
+                    self.regs[dst] = Value::I32(a.wrapping_mul(b));
                     pc += 1;
                 }
                 Instruction::I32DivS { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_i32();
-                    let b = self.regs[rhs as usize].as_i32();
+                    let a = self.regs[lhs].as_i32();
+                    let b = self.regs[rhs].as_i32();
                     if b == 0 {
                         return Err(RuntimeError::DivisionByZero);
                     }
                     if a == i32::MIN && b == -1 {
                         return Err(RuntimeError::IntegerOverflow);
                     }
-                    self.regs[dst as usize] = Value::I32(a / b);
+                    self.regs[dst] = Value::I32(a / b);
                     pc += 1;
                 }
                 Instruction::I32DivU { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_i32() as u32;
-                    let b = self.regs[rhs as usize].as_i32() as u32;
+                    let a = self.regs[lhs].as_i32() as u32;
+                    let b = self.regs[rhs].as_i32() as u32;
                     if b == 0 {
                         return Err(RuntimeError::DivisionByZero);
                     }
-                    self.regs[dst as usize] = Value::I32((a / b) as i32);
+                    self.regs[dst] = Value::I32((a / b) as i32);
                     pc += 1;
                 }
                 Instruction::I32RemS { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_i32();
-                    let b = self.regs[rhs as usize].as_i32();
+                    let a = self.regs[lhs].as_i32();
+                    let b = self.regs[rhs].as_i32();
                     if b == 0 {
                         return Err(RuntimeError::DivisionByZero);
                     }
-                    self.regs[dst as usize] = Value::I32(a % b);
+                    self.regs[dst] = Value::I32(a % b);
                     pc += 1;
                 }
                 Instruction::I32RemU { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_i32() as u32;
-                    let b = self.regs[rhs as usize].as_i32() as u32;
+                    let a = self.regs[lhs].as_i32() as u32;
+                    let b = self.regs[rhs].as_i32() as u32;
                     if b == 0 {
                         return Err(RuntimeError::DivisionByZero);
                     }
-                    self.regs[dst as usize] = Value::I32((a % b) as i32);
+                    self.regs[dst] = Value::I32((a % b) as i32);
                     pc += 1;
                 }
                 Instruction::I32And { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_i32();
-                    let b = self.regs[rhs as usize].as_i32();
-                    self.regs[dst as usize] = Value::I32(a & b);
+                    let a = self.regs[lhs].as_i32();
+                    let b = self.regs[rhs].as_i32();
+                    self.regs[dst] = Value::I32(a & b);
                     pc += 1;
                 }
                 Instruction::I32Or { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_i32();
-                    let b = self.regs[rhs as usize].as_i32();
-                    self.regs[dst as usize] = Value::I32(a | b);
+                    let a = self.regs[lhs].as_i32();
+                    let b = self.regs[rhs].as_i32();
+                    self.regs[dst] = Value::I32(a | b);
                     pc += 1;
                 }
                 Instruction::I32Xor { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_i32();
-                    let b = self.regs[rhs as usize].as_i32();
-                    self.regs[dst as usize] = Value::I32(a ^ b);
+                    let a = self.regs[lhs].as_i32();
+                    let b = self.regs[rhs].as_i32();
+                    self.regs[dst] = Value::I32(a ^ b);
                     pc += 1;
                 }
                 Instruction::I32Shl { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_i32();
-                    let b = self.regs[rhs as usize].as_i32();
-                    self.regs[dst as usize] = Value::I32(a << (b & 31));
+                    let a = self.regs[lhs].as_i32();
+                    let b = self.regs[rhs].as_i32();
+                    self.regs[dst] = Value::I32(a << (b & 31));
                     pc += 1;
                 }
                 Instruction::I32ShrS { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_i32();
-                    let b = self.regs[rhs as usize].as_i32();
-                    self.regs[dst as usize] = Value::I32(a >> (b & 31));
+                    let a = self.regs[lhs].as_i32();
+                    let b = self.regs[rhs].as_i32();
+                    self.regs[dst] = Value::I32(a >> (b & 31));
                     pc += 1;
                 }
                 Instruction::I32ShrU { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_i32() as u32;
-                    let b = self.regs[rhs as usize].as_i32();
-                    self.regs[dst as usize] = Value::I32((a >> (b & 31)) as i32);
+                    let a = self.regs[lhs].as_i32() as u32;
+                    let b = self.regs[rhs].as_i32();
+                    self.regs[dst] = Value::I32((a >> (b & 31)) as i32);
                     pc += 1;
                 }
 
                 // i32 comparison
                 Instruction::I32Eq { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_i32();
-                    let b = self.regs[rhs as usize].as_i32();
-                    self.regs[dst as usize] = Value::I32(if a == b { 1 } else { 0 });
+                    let a = self.regs[lhs].as_i32();
+                    let b = self.regs[rhs].as_i32();
+                    self.regs[dst] = Value::I32(if a == b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::I32Ne { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_i32();
-                    let b = self.regs[rhs as usize].as_i32();
-                    self.regs[dst as usize] = Value::I32(if a != b { 1 } else { 0 });
+                    let a = self.regs[lhs].as_i32();
+                    let b = self.regs[rhs].as_i32();
+                    self.regs[dst] = Value::I32(if a != b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::I32LtS { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_i32();
-                    let b = self.regs[rhs as usize].as_i32();
-                    self.regs[dst as usize] = Value::I32(if a < b { 1 } else { 0 });
+                    let a = self.regs[lhs].as_i32();
+                    let b = self.regs[rhs].as_i32();
+                    self.regs[dst] = Value::I32(if a < b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::I32LtU { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_i32() as u32;
-                    let b = self.regs[rhs as usize].as_i32() as u32;
-                    self.regs[dst as usize] = Value::I32(if a < b { 1 } else { 0 });
+                    let a = self.regs[lhs].as_i32() as u32;
+                    let b = self.regs[rhs].as_i32() as u32;
+                    self.regs[dst] = Value::I32(if a < b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::I32GtS { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_i32();
-                    let b = self.regs[rhs as usize].as_i32();
-                    self.regs[dst as usize] = Value::I32(if a > b { 1 } else { 0 });
+                    let a = self.regs[lhs].as_i32();
+                    let b = self.regs[rhs].as_i32();
+                    self.regs[dst] = Value::I32(if a > b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::I32GtU { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_i32() as u32;
-                    let b = self.regs[rhs as usize].as_i32() as u32;
-                    self.regs[dst as usize] = Value::I32(if a > b { 1 } else { 0 });
+                    let a = self.regs[lhs].as_i32() as u32;
+                    let b = self.regs[rhs].as_i32() as u32;
+                    self.regs[dst] = Value::I32(if a > b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::I32LeS { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_i32();
-                    let b = self.regs[rhs as usize].as_i32();
-                    self.regs[dst as usize] = Value::I32(if a <= b { 1 } else { 0 });
+                    let a = self.regs[lhs].as_i32();
+                    let b = self.regs[rhs].as_i32();
+                    self.regs[dst] = Value::I32(if a <= b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::I32LeU { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_i32() as u32;
-                    let b = self.regs[rhs as usize].as_i32() as u32;
-                    self.regs[dst as usize] = Value::I32(if a <= b { 1 } else { 0 });
+                    let a = self.regs[lhs].as_i32() as u32;
+                    let b = self.regs[rhs].as_i32() as u32;
+                    self.regs[dst] = Value::I32(if a <= b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::I32GeS { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_i32();
-                    let b = self.regs[rhs as usize].as_i32();
-                    self.regs[dst as usize] = Value::I32(if a >= b { 1 } else { 0 });
+                    let a = self.regs[lhs].as_i32();
+                    let b = self.regs[rhs].as_i32();
+                    self.regs[dst] = Value::I32(if a >= b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::I32GeU { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_i32() as u32;
-                    let b = self.regs[rhs as usize].as_i32() as u32;
-                    self.regs[dst as usize] = Value::I32(if a >= b { 1 } else { 0 });
+                    let a = self.regs[lhs].as_i32() as u32;
+                    let b = self.regs[rhs].as_i32() as u32;
+                    self.regs[dst] = Value::I32(if a >= b { 1 } else { 0 });
                     pc += 1;
                 }
 
                 // i64 arithmetic
                 Instruction::I64Add { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_i64();
-                    let b = self.regs[rhs as usize].as_i64();
-                    self.regs[dst as usize] = Value::I64(a.wrapping_add(b));
+                    let a = self.regs[lhs].as_i64();
+                    let b = self.regs[rhs].as_i64();
+                    self.regs[dst] = Value::I64(a.wrapping_add(b));
                     pc += 1;
                 }
                 Instruction::I64Sub { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_i64();
-                    let b = self.regs[rhs as usize].as_i64();
-                    self.regs[dst as usize] = Value::I64(a.wrapping_sub(b));
+                    let a = self.regs[lhs].as_i64();
+                    let b = self.regs[rhs].as_i64();
+                    self.regs[dst] = Value::I64(a.wrapping_sub(b));
                     pc += 1;
                 }
                 Instruction::I64Mul { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_i64();
-                    let b = self.regs[rhs as usize].as_i64();
-                    self.regs[dst as usize] = Value::I64(a.wrapping_mul(b));
+                    let a = self.regs[lhs].as_i64();
+                    let b = self.regs[rhs].as_i64();
+                    self.regs[dst] = Value::I64(a.wrapping_mul(b));
                     pc += 1;
                 }
                 Instruction::I64DivS { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_i64();
-                    let b = self.regs[rhs as usize].as_i64();
+                    let a = self.regs[lhs].as_i64();
+                    let b = self.regs[rhs].as_i64();
                     if b == 0 {
                         return Err(RuntimeError::DivisionByZero);
                     }
                     if a == i64::MIN && b == -1 {
                         return Err(RuntimeError::IntegerOverflow);
                     }
-                    self.regs[dst as usize] = Value::I64(a / b);
+                    self.regs[dst] = Value::I64(a / b);
                     pc += 1;
                 }
                 Instruction::I64DivU { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_i64() as u64;
-                    let b = self.regs[rhs as usize].as_i64() as u64;
+                    let a = self.regs[lhs].as_i64() as u64;
+                    let b = self.regs[rhs].as_i64() as u64;
                     if b == 0 {
                         return Err(RuntimeError::DivisionByZero);
                     }
-                    self.regs[dst as usize] = Value::I64((a / b) as i64);
+                    self.regs[dst] = Value::I64((a / b) as i64);
                     pc += 1;
                 }
                 Instruction::I64RemS { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_i64();
-                    let b = self.regs[rhs as usize].as_i64();
+                    let a = self.regs[lhs].as_i64();
+                    let b = self.regs[rhs].as_i64();
                     if b == 0 {
                         return Err(RuntimeError::DivisionByZero);
                     }
-                    self.regs[dst as usize] = Value::I64(a % b);
+                    self.regs[dst] = Value::I64(a % b);
                     pc += 1;
                 }
                 Instruction::I64RemU { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_i64() as u64;
-                    let b = self.regs[rhs as usize].as_i64() as u64;
+                    let a = self.regs[lhs].as_i64() as u64;
+                    let b = self.regs[rhs].as_i64() as u64;
                     if b == 0 {
                         return Err(RuntimeError::DivisionByZero);
                     }
-                    self.regs[dst as usize] = Value::I64((a % b) as i64);
+                    self.regs[dst] = Value::I64((a % b) as i64);
                     pc += 1;
                 }
                 Instruction::I64And { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_i64();
-                    let b = self.regs[rhs as usize].as_i64();
-                    self.regs[dst as usize] = Value::I64(a & b);
+                    let a = self.regs[lhs].as_i64();
+                    let b = self.regs[rhs].as_i64();
+                    self.regs[dst] = Value::I64(a & b);
                     pc += 1;
                 }
                 Instruction::I64Or { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_i64();
-                    let b = self.regs[rhs as usize].as_i64();
-                    self.regs[dst as usize] = Value::I64(a | b);
+                    let a = self.regs[lhs].as_i64();
+                    let b = self.regs[rhs].as_i64();
+                    self.regs[dst] = Value::I64(a | b);
                     pc += 1;
                 }
                 Instruction::I64Xor { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_i64();
-                    let b = self.regs[rhs as usize].as_i64();
-                    self.regs[dst as usize] = Value::I64(a ^ b);
+                    let a = self.regs[lhs].as_i64();
+                    let b = self.regs[rhs].as_i64();
+                    self.regs[dst] = Value::I64(a ^ b);
                     pc += 1;
                 }
                 Instruction::I64Shl { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_i64();
-                    let b = self.regs[rhs as usize].as_i64();
-                    self.regs[dst as usize] = Value::I64(a << (b & 63));
+                    let a = self.regs[lhs].as_i64();
+                    let b = self.regs[rhs].as_i64();
+                    self.regs[dst] = Value::I64(a << (b & 63));
                     pc += 1;
                 }
                 Instruction::I64ShrS { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_i64();
-                    let b = self.regs[rhs as usize].as_i64();
-                    self.regs[dst as usize] = Value::I64(a >> (b & 63));
+                    let a = self.regs[lhs].as_i64();
+                    let b = self.regs[rhs].as_i64();
+                    self.regs[dst] = Value::I64(a >> (b & 63));
                     pc += 1;
                 }
                 Instruction::I64ShrU { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_i64() as u64;
-                    let b = self.regs[rhs as usize].as_i64();
-                    self.regs[dst as usize] = Value::I64((a >> (b & 63)) as i64);
+                    let a = self.regs[lhs].as_i64() as u64;
+                    let b = self.regs[rhs].as_i64();
+                    self.regs[dst] = Value::I64((a >> (b & 63)) as i64);
                     pc += 1;
                 }
 
                 // i64 comparison
                 Instruction::I64Eq { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_i64();
-                    let b = self.regs[rhs as usize].as_i64();
-                    self.regs[dst as usize] = Value::I32(if a == b { 1 } else { 0 });
+                    let a = self.regs[lhs].as_i64();
+                    let b = self.regs[rhs].as_i64();
+                    self.regs[dst] = Value::I32(if a == b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::I64Ne { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_i64();
-                    let b = self.regs[rhs as usize].as_i64();
-                    self.regs[dst as usize] = Value::I32(if a != b { 1 } else { 0 });
+                    let a = self.regs[lhs].as_i64();
+                    let b = self.regs[rhs].as_i64();
+                    self.regs[dst] = Value::I32(if a != b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::I64LtS { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_i64();
-                    let b = self.regs[rhs as usize].as_i64();
-                    self.regs[dst as usize] = Value::I32(if a < b { 1 } else { 0 });
+                    let a = self.regs[lhs].as_i64();
+                    let b = self.regs[rhs].as_i64();
+                    self.regs[dst] = Value::I32(if a < b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::I64LtU { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_i64() as u64;
-                    let b = self.regs[rhs as usize].as_i64() as u64;
-                    self.regs[dst as usize] = Value::I32(if a < b { 1 } else { 0 });
+                    let a = self.regs[lhs].as_i64() as u64;
+                    let b = self.regs[rhs].as_i64() as u64;
+                    self.regs[dst] = Value::I32(if a < b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::I64GtS { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_i64();
-                    let b = self.regs[rhs as usize].as_i64();
-                    self.regs[dst as usize] = Value::I32(if a > b { 1 } else { 0 });
+                    let a = self.regs[lhs].as_i64();
+                    let b = self.regs[rhs].as_i64();
+                    self.regs[dst] = Value::I32(if a > b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::I64GtU { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_i64() as u64;
-                    let b = self.regs[rhs as usize].as_i64() as u64;
-                    self.regs[dst as usize] = Value::I32(if a > b { 1 } else { 0 });
+                    let a = self.regs[lhs].as_i64() as u64;
+                    let b = self.regs[rhs].as_i64() as u64;
+                    self.regs[dst] = Value::I32(if a > b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::I64LeS { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_i64();
-                    let b = self.regs[rhs as usize].as_i64();
-                    self.regs[dst as usize] = Value::I32(if a <= b { 1 } else { 0 });
+                    let a = self.regs[lhs].as_i64();
+                    let b = self.regs[rhs].as_i64();
+                    self.regs[dst] = Value::I32(if a <= b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::I64LeU { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_i64() as u64;
-                    let b = self.regs[rhs as usize].as_i64() as u64;
-                    self.regs[dst as usize] = Value::I32(if a <= b { 1 } else { 0 });
+                    let a = self.regs[lhs].as_i64() as u64;
+                    let b = self.regs[rhs].as_i64() as u64;
+                    self.regs[dst] = Value::I32(if a <= b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::I64GeS { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_i64();
-                    let b = self.regs[rhs as usize].as_i64();
-                    self.regs[dst as usize] = Value::I32(if a >= b { 1 } else { 0 });
+                    let a = self.regs[lhs].as_i64();
+                    let b = self.regs[rhs].as_i64();
+                    self.regs[dst] = Value::I32(if a >= b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::I64GeU { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_i64() as u64;
-                    let b = self.regs[rhs as usize].as_i64() as u64;
-                    self.regs[dst as usize] = Value::I32(if a >= b { 1 } else { 0 });
+                    let a = self.regs[lhs].as_i64() as u64;
+                    let b = self.regs[rhs].as_i64() as u64;
+                    self.regs[dst] = Value::I32(if a >= b { 1 } else { 0 });
                     pc += 1;
                 }
 
                 // f32 arithmetic
                 Instruction::F32Add { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_f32();
-                    let b = self.regs[rhs as usize].as_f32();
-                    self.regs[dst as usize] = Value::F32(a + b);
+                    let a = self.regs[lhs].as_f32();
+                    let b = self.regs[rhs].as_f32();
+                    self.regs[dst] = Value::F32(a + b);
                     pc += 1;
                 }
                 Instruction::F32Sub { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_f32();
-                    let b = self.regs[rhs as usize].as_f32();
-                    self.regs[dst as usize] = Value::F32(a - b);
+                    let a = self.regs[lhs].as_f32();
+                    let b = self.regs[rhs].as_f32();
+                    self.regs[dst] = Value::F32(a - b);
                     pc += 1;
                 }
                 Instruction::F32Mul { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_f32();
-                    let b = self.regs[rhs as usize].as_f32();
-                    self.regs[dst as usize] = Value::F32(a * b);
+                    let a = self.regs[lhs].as_f32();
+                    let b = self.regs[rhs].as_f32();
+                    self.regs[dst] = Value::F32(a * b);
                     pc += 1;
                 }
                 Instruction::F32Div { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_f32();
-                    let b = self.regs[rhs as usize].as_f32();
-                    self.regs[dst as usize] = Value::F32(a / b);
+                    let a = self.regs[lhs].as_f32();
+                    let b = self.regs[rhs].as_f32();
+                    self.regs[dst] = Value::F32(a / b);
                     pc += 1;
                 }
                 Instruction::F32Min { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_f32();
-                    let b = self.regs[rhs as usize].as_f32();
-                    self.regs[dst as usize] = Value::F32(a.min(b));
+                    let a = self.regs[lhs].as_f32();
+                    let b = self.regs[rhs].as_f32();
+                    self.regs[dst] = Value::F32(a.min(b));
                     pc += 1;
                 }
                 Instruction::F32Max { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_f32();
-                    let b = self.regs[rhs as usize].as_f32();
-                    self.regs[dst as usize] = Value::F32(a.max(b));
+                    let a = self.regs[lhs].as_f32();
+                    let b = self.regs[rhs].as_f32();
+                    self.regs[dst] = Value::F32(a.max(b));
                     pc += 1;
                 }
 
                 // f32 unary
                 Instruction::F32Abs { dst, src } => {
-                    self.regs[dst as usize] = Value::F32(self.regs[src as usize].as_f32().abs());
+                    self.regs[dst] = Value::F32(self.regs[src].as_f32().abs());
                     pc += 1;
                 }
                 Instruction::F32Neg { dst, src } => {
-                    self.regs[dst as usize] = Value::F32(-self.regs[src as usize].as_f32());
+                    self.regs[dst] = Value::F32(-self.regs[src].as_f32());
                     pc += 1;
                 }
                 Instruction::F32Ceil { dst, src } => {
-                    self.regs[dst as usize] = Value::F32(self.regs[src as usize].as_f32().ceil());
+                    self.regs[dst] = Value::F32(self.regs[src].as_f32().ceil());
                     pc += 1;
                 }
                 Instruction::F32Floor { dst, src } => {
-                    self.regs[dst as usize] = Value::F32(self.regs[src as usize].as_f32().floor());
+                    self.regs[dst] = Value::F32(self.regs[src].as_f32().floor());
                     pc += 1;
                 }
                 Instruction::F32Trunc { dst, src } => {
-                    self.regs[dst as usize] = Value::F32(self.regs[src as usize].as_f32().trunc());
+                    self.regs[dst] = Value::F32(self.regs[src].as_f32().trunc());
                     pc += 1;
                 }
                 Instruction::F32Nearest { dst, src } => {
-                    self.regs[dst as usize] = Value::F32(self.regs[src as usize].as_f32().round());
+                    self.regs[dst] = Value::F32(self.regs[src].as_f32().round());
                     pc += 1;
                 }
                 Instruction::F32Sqrt { dst, src } => {
-                    self.regs[dst as usize] = Value::F32(self.regs[src as usize].as_f32().sqrt());
+                    self.regs[dst] = Value::F32(self.regs[src].as_f32().sqrt());
                     pc += 1;
                 }
 
                 // f32 comparison
                 Instruction::F32Eq { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_f32();
-                    let b = self.regs[rhs as usize].as_f32();
-                    self.regs[dst as usize] = Value::I32(if a == b { 1 } else { 0 });
+                    let a = self.regs[lhs].as_f32();
+                    let b = self.regs[rhs].as_f32();
+                    self.regs[dst] = Value::I32(if a == b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::F32Ne { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_f32();
-                    let b = self.regs[rhs as usize].as_f32();
-                    self.regs[dst as usize] = Value::I32(if a != b { 1 } else { 0 });
+                    let a = self.regs[lhs].as_f32();
+                    let b = self.regs[rhs].as_f32();
+                    self.regs[dst] = Value::I32(if a != b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::F32Lt { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_f32();
-                    let b = self.regs[rhs as usize].as_f32();
-                    self.regs[dst as usize] = Value::I32(if a < b { 1 } else { 0 });
+                    let a = self.regs[lhs].as_f32();
+                    let b = self.regs[rhs].as_f32();
+                    self.regs[dst] = Value::I32(if a < b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::F32Gt { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_f32();
-                    let b = self.regs[rhs as usize].as_f32();
-                    self.regs[dst as usize] = Value::I32(if a > b { 1 } else { 0 });
+                    let a = self.regs[lhs].as_f32();
+                    let b = self.regs[rhs].as_f32();
+                    self.regs[dst] = Value::I32(if a > b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::F32Le { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_f32();
-                    let b = self.regs[rhs as usize].as_f32();
-                    self.regs[dst as usize] = Value::I32(if a <= b { 1 } else { 0 });
+                    let a = self.regs[lhs].as_f32();
+                    let b = self.regs[rhs].as_f32();
+                    self.regs[dst] = Value::I32(if a <= b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::F32Ge { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_f32();
-                    let b = self.regs[rhs as usize].as_f32();
-                    self.regs[dst as usize] = Value::I32(if a >= b { 1 } else { 0 });
+                    let a = self.regs[lhs].as_f32();
+                    let b = self.regs[rhs].as_f32();
+                    self.regs[dst] = Value::I32(if a >= b { 1 } else { 0 });
                     pc += 1;
                 }
 
                 // f64 arithmetic
                 Instruction::F64Add { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_f64();
-                    let b = self.regs[rhs as usize].as_f64();
-                    self.regs[dst as usize] = Value::F64(a + b);
+                    let a = self.regs[lhs].as_f64();
+                    let b = self.regs[rhs].as_f64();
+                    self.regs[dst] = Value::F64(a + b);
                     pc += 1;
                 }
                 Instruction::F64Sub { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_f64();
-                    let b = self.regs[rhs as usize].as_f64();
-                    self.regs[dst as usize] = Value::F64(a - b);
+                    let a = self.regs[lhs].as_f64();
+                    let b = self.regs[rhs].as_f64();
+                    self.regs[dst] = Value::F64(a - b);
                     pc += 1;
                 }
                 Instruction::F64Mul { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_f64();
-                    let b = self.regs[rhs as usize].as_f64();
-                    self.regs[dst as usize] = Value::F64(a * b);
+                    let a = self.regs[lhs].as_f64();
+                    let b = self.regs[rhs].as_f64();
+                    self.regs[dst] = Value::F64(a * b);
                     pc += 1;
                 }
                 Instruction::F64Div { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_f64();
-                    let b = self.regs[rhs as usize].as_f64();
-                    self.regs[dst as usize] = Value::F64(a / b);
+                    let a = self.regs[lhs].as_f64();
+                    let b = self.regs[rhs].as_f64();
+                    self.regs[dst] = Value::F64(a / b);
                     pc += 1;
                 }
                 Instruction::F64Min { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_f64();
-                    let b = self.regs[rhs as usize].as_f64();
-                    self.regs[dst as usize] = Value::F64(a.min(b));
+                    let a = self.regs[lhs].as_f64();
+                    let b = self.regs[rhs].as_f64();
+                    self.regs[dst] = Value::F64(a.min(b));
                     pc += 1;
                 }
                 Instruction::F64Max { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_f64();
-                    let b = self.regs[rhs as usize].as_f64();
-                    self.regs[dst as usize] = Value::F64(a.max(b));
+                    let a = self.regs[lhs].as_f64();
+                    let b = self.regs[rhs].as_f64();
+                    self.regs[dst] = Value::F64(a.max(b));
                     pc += 1;
                 }
 
                 // f64 unary
                 Instruction::F64Abs { dst, src } => {
-                    self.regs[dst as usize] = Value::F64(self.regs[src as usize].as_f64().abs());
+                    self.regs[dst] = Value::F64(self.regs[src].as_f64().abs());
                     pc += 1;
                 }
                 Instruction::F64Neg { dst, src } => {
-                    self.regs[dst as usize] = Value::F64(-self.regs[src as usize].as_f64());
+                    self.regs[dst] = Value::F64(-self.regs[src].as_f64());
                     pc += 1;
                 }
                 Instruction::F64Ceil { dst, src } => {
-                    self.regs[dst as usize] = Value::F64(self.regs[src as usize].as_f64().ceil());
+                    self.regs[dst] = Value::F64(self.regs[src].as_f64().ceil());
                     pc += 1;
                 }
                 Instruction::F64Floor { dst, src } => {
-                    self.regs[dst as usize] = Value::F64(self.regs[src as usize].as_f64().floor());
+                    self.regs[dst] = Value::F64(self.regs[src].as_f64().floor());
                     pc += 1;
                 }
                 Instruction::F64Trunc { dst, src } => {
-                    self.regs[dst as usize] = Value::F64(self.regs[src as usize].as_f64().trunc());
+                    self.regs[dst] = Value::F64(self.regs[src].as_f64().trunc());
                     pc += 1;
                 }
                 Instruction::F64Nearest { dst, src } => {
-                    self.regs[dst as usize] = Value::F64(self.regs[src as usize].as_f64().round());
+                    self.regs[dst] = Value::F64(self.regs[src].as_f64().round());
                     pc += 1;
                 }
                 Instruction::F64Sqrt { dst, src } => {
-                    self.regs[dst as usize] = Value::F64(self.regs[src as usize].as_f64().sqrt());
+                    self.regs[dst] = Value::F64(self.regs[src].as_f64().sqrt());
                     pc += 1;
                 }
 
                 // f64 comparison
                 Instruction::F64Eq { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_f64();
-                    let b = self.regs[rhs as usize].as_f64();
-                    self.regs[dst as usize] = Value::I32(if a == b { 1 } else { 0 });
+                    let a = self.regs[lhs].as_f64();
+                    let b = self.regs[rhs].as_f64();
+                    self.regs[dst] = Value::I32(if a == b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::F64Ne { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_f64();
-                    let b = self.regs[rhs as usize].as_f64();
-                    self.regs[dst as usize] = Value::I32(if a != b { 1 } else { 0 });
+                    let a = self.regs[lhs].as_f64();
+                    let b = self.regs[rhs].as_f64();
+                    self.regs[dst] = Value::I32(if a != b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::F64Lt { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_f64();
-                    let b = self.regs[rhs as usize].as_f64();
-                    self.regs[dst as usize] = Value::I32(if a < b { 1 } else { 0 });
+                    let a = self.regs[lhs].as_f64();
+                    let b = self.regs[rhs].as_f64();
+                    self.regs[dst] = Value::I32(if a < b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::F64Gt { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_f64();
-                    let b = self.regs[rhs as usize].as_f64();
-                    self.regs[dst as usize] = Value::I32(if a > b { 1 } else { 0 });
+                    let a = self.regs[lhs].as_f64();
+                    let b = self.regs[rhs].as_f64();
+                    self.regs[dst] = Value::I32(if a > b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::F64Le { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_f64();
-                    let b = self.regs[rhs as usize].as_f64();
-                    self.regs[dst as usize] = Value::I32(if a <= b { 1 } else { 0 });
+                    let a = self.regs[lhs].as_f64();
+                    let b = self.regs[rhs].as_f64();
+                    self.regs[dst] = Value::I32(if a <= b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::F64Ge { dst, lhs, rhs } => {
-                    let a = self.regs[lhs as usize].as_f64();
-                    let b = self.regs[rhs as usize].as_f64();
-                    self.regs[dst as usize] = Value::I32(if a >= b { 1 } else { 0 });
+                    let a = self.regs[lhs].as_f64();
+                    let b = self.regs[rhs].as_f64();
+                    self.regs[dst] = Value::I32(if a >= b { 1 } else { 0 });
                     pc += 1;
                 }
 
@@ -651,7 +686,7 @@ impl BytecodeVm {
                     }
                 }
                 Instruction::BrIf { cond, depth } => {
-                    if self.regs[cond as usize].as_i32() != 0 {
+                    if self.regs[cond].as_i32() != 0 {
                         let idx = self.label_stack.len() - 1 - depth as usize;
                         let label = self.label_stack[idx];
                         pc = label.target as usize;
@@ -685,11 +720,11 @@ impl BytecodeVm {
                             name: format!("{}.{}", import.module, import.name),
                         })?;
 
-                    let args: Vec<Value> = (0..argc).map(|i| self.regs[(base + i) as usize]).collect();
+                    let args: Vec<Value> = (0..argc).map(|i| self.regs[base + i]).collect();
 
                     let result = (host_fn.func)(&args)?;
                     if let Some(v) = result {
-                        self.regs[dst as usize] = v;
+                        self.regs[dst] = v;
                     }
                     pc += 1;
                 }
@@ -698,6 +733,6 @@ impl BytecodeVm {
             }
         }
 
-        Ok(Some(self.regs[0]))
+        Ok(Some(self.regs[0u8]))
     }
 }
