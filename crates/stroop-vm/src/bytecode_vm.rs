@@ -2,6 +2,7 @@
 
 use crate::error::RuntimeError;
 use crate::value::Value;
+use std::ops::{Index, IndexMut};
 use stroop_bytecode::{Addr32, CompiledModule, FuncType, Instruction};
 
 /// Host function that can be called from the VM.
@@ -685,8 +686,7 @@ impl BytecodeVm {
                             name: format!("{}.{}", import.module, import.name),
                         })?;
 
-                    let args: Vec<Value> =
-                        (0..argc).map(|i| self.regs[(base + i) as usize]).collect();
+                    let args: Vec<Value> = (0..argc).map(|i| self.regs[(base + i) as usize]).collect();
 
                     let result = (host_fn.func)(&args)?;
                     if let Some(v) = result {
