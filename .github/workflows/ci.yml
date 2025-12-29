@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-action/rustup@master
+      - uses: dtolnay/rust-toolchain@stable
       - run: cargo build --release
       - run: cargo test
 
@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-action/rustup@master
+      - uses: dtolnay/rust-toolchain@stable
 
       - name: Install cargo-codspeed
         run: cargo install cargo-codspeed --locked
