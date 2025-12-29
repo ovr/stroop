@@ -1,0 +1,10 @@
+;; Stroop Assembly Text Example
+;; Demonstrates WebAssembly-style imports and calls
+
+(module
+  ;; Import console.log function
+  (import "console" "log" (func $log (param i32)))
+
+  ;; Call console.log with result of 1 + 1
+  (call $log (i32.add (i32.const 1) (i32.const 1)))
+)

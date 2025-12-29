@@ -1,0 +1,17 @@
+[workspace]
+members = ["crates/*"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+
+[workspace.dependencies]
+stroop-bytecode = { path = "crates/stroop-bytecode" }
+stroop-text-assembly = { path = "crates/stroop-text-assembly" }
+stroop-vm = { path = "crates/stroop-vm" }
+stroop-cli = { path = "crates/stroop-cli" }
+
+[profile.release]
+debug = true

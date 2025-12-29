@@ -1,0 +1,79 @@
+;; Stroop Assembly Text Benchmark
+;; Source: https://github.com/KusStar/benchmark-static-hermes/blob/main/benches/calc.js
+;; Direct port of JavaScript benchmark:
+;;
+;; function bench(lc, fc) {
+;;   var n, fact;
+;;   var res = 0;
+;;   while (--lc >= 0) {
+;;     n = fc;
+;;     fact = n;
+;;     while (--n > 1)
+;;       fact *= n;
+;;     res += fact;
+;;   }
+;;   return res;
+;; }
+;;
+;; let t1 = Date.now();
+;; var res = bench(4e6, 100);
+;; console.log(Date.now() - t1, "ms,", res);
+;;
+;; Expected result: 3.7330486176528693e+164
+
+(module
+  (import "console" "log" (func $log (param f64)))
+
+  ;; Locals:
+  ;; 0 = lc (outer loop counter)
+  ;; 1 = fc (factorial base, constant)
+  ;; 2 = n (inner loop counter)
+  ;; 3 = fact (factorial result)
+  ;; 4 = res (accumulated result)
+
+  ;; Initialize: lc = 4000000, fc = 100, res = 0
+  (local.set 0 (f64.const 4000000))
+  (local.set 1 (f64.const 100))
+  (local.set 4 (f64.const 0))
+
+  ;; Outer loop: while (--lc >= 0)
+  (block
+    (loop
+      ;; --lc
+      (local.set 0 (f64.sub (local.get 0) (f64.const 1)))
+      ;; exit if lc < 0
+      (br_if 1 (f64.lt (local.get 0) (f64.const 0)))
+
+      ;; n = fc
+      (local.set 2 (local.get 1))
+
+      ;; fact = n
+      (local.set 3 (local.get 2))
+
+      ;; Inner loop: while (--n > 1)
+      (block
+        (loop
+          ;; --n
+          (local.set 2 (f64.sub (local.get 2) (f64.const 1)))
+          ;; exit if n <= 1
+          (br_if 1 (f64.le (local.get 2) (f64.const 1)))
+
+          ;; fact *= n
+          (local.set 3 (f64.mul (local.get 3) (local.get 2)))
+
+          ;; continue inner loop
+          (br 0)
+        )
+      )
+
+      ;; res += fact
+      (local.set 4 (f64.add (local.get 4) (local.get 3)))
+
+      ;; continue outer loop
+      (br 0)
+    )
+  )
+
+  ;; Output result
+  (call $log (local.get 4))
+)

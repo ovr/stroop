@@ -1,0 +1,9 @@
+[package]
+name = "stroop-vm"
+description = "Virtual machine implementation"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+stroop-bytecode = { path = "../stroop-bytecode" }

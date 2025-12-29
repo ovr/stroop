@@ -1,0 +1,17 @@
+[package]
+name = "stroop-cli"
+description = "Command-line interface for Stroop VM"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "stroop"
+path = "src/main.rs"
+
+[profile.release]
+lto = "fat"
+
+[dependencies]
+stroop-text-assembly.workspace = true
+stroop-vm.workspace = true
