@@ -685,8 +685,7 @@ impl BytecodeVm {
                             name: format!("{}.{}", import.module, import.name),
                         })?;
 
-                    let args: Vec<Value> =
-                        (0..argc).map(|i| self.regs[(base + i) as usize]).collect();
+                    let args: Vec<Value> = (0..argc).map(|i| self.regs[(base + i) as usize]).collect();
 
                     let result = (host_fn.func)(&args)?;
                     if let Some(v) = result {
