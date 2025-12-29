@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use crate::ast::{ConstValue, Expr, Module};
 use crate::opcode::Opcode;
-use stroop_bytecode::{CompiledModule, Instruction};
+use stroop_bytecode::{CompiledModule, ConstPoolId, ConstPoolValue, Instruction};
 
 /// Compiler state with register allocation.
 struct Compiler {
@@ -15,6 +15,10 @@ struct Compiler {
     first_temp: u8,
     /// Cache of constants to their dedicated registers (key is f64 bits for reliable equality)
     const_cache: HashMap<u64, u8>,
+    /// Constant pool for i64/f64 values
+    constant_pool: Vec<ConstPoolValue>,
+    /// Deduplication map: value bits -> pool index
+    pool_index_map: HashMap<u64, ConstPoolId>,
 }
 
 impl Compiler {
@@ -24,7 +28,43 @@ impl Compiler {
             next_reg: num_locals,
             first_temp: num_locals,
             const_cache: HashMap::new(),
+            constant_pool: Vec::new(),
+            pool_index_map: HashMap::new(),
         }
+    }
+
+    /// Add an i64 constant to the pool, returning its index.
+    /// Deduplicates based on bit representation.
+    fn add_i64_to_pool(&mut self, value: i64) -> ConstPoolId {
+        let bits = value as u64;
+        if let Some(&index) = self.pool_index_map.get(&bits) {
+            return index;
+        }
+        let index = self.constant_pool.len() as ConstPoolId;
+        assert!(
+            index < ConstPoolId::MAX,
+            "constant pool overflow (>65535 constants)"
+        );
+        self.constant_pool.push(ConstPoolValue::I64(value));
+        self.pool_index_map.insert(bits, index);
+        index
+    }
+
+    /// Add an f64 constant to the pool, returning its index.
+    /// Deduplicates based on bit representation (handles NaN correctly).
+    fn add_f64_to_pool(&mut self, value: f64) -> ConstPoolId {
+        let bits = value.to_bits();
+        if let Some(&index) = self.pool_index_map.get(&bits) {
+            return index;
+        }
+        let index = self.constant_pool.len() as ConstPoolId;
+        assert!(
+            index < ConstPoolId::MAX,
+            "constant pool overflow (>65535 constants)"
+        );
+        self.constant_pool.push(ConstPoolValue::F64(value));
+        self.pool_index_map.insert(bits, index);
+        index
     }
 
     /// Preload frequently used constants into dedicated registers.
@@ -39,10 +79,8 @@ impl Compiler {
             // Only cache constants used more than once
             if count > 1 {
                 let reg = self.alloc_temp();
-                self.emit(Instruction::LoadConstF64 {
-                    dst: reg,
-                    value: f64::from_bits(bits),
-                });
+                let index = self.add_f64_to_pool(f64::from_bits(bits));
+                self.emit(Instruction::LoadConstF64 { dst: reg, index });
                 self.const_cache.insert(bits, reg);
             }
         }
@@ -103,16 +141,22 @@ impl Compiler {
                 } else {
                     match value {
                         ConstValue::I32(v) => {
+                            // Keep i32 inline (only 4 bytes)
                             self.emit(Instruction::LoadConstI32 { dst, value: *v })
                         }
                         ConstValue::I64(v) => {
-                            self.emit(Instruction::LoadConstI64 { dst, value: *v })
+                            // Use constant pool for i64
+                            let index = self.add_i64_to_pool(*v);
+                            self.emit(Instruction::LoadConstI64 { dst, index })
                         }
                         ConstValue::F32(v) => {
+                            // Keep f32 inline (only 4 bytes)
                             self.emit(Instruction::LoadConstF32 { dst, value: *v })
                         }
                         ConstValue::F64(v) => {
-                            self.emit(Instruction::LoadConstF64 { dst, value: *v })
+                            // Use constant pool for f64
+                            let index = self.add_f64_to_pool(*v);
+                            self.emit(Instruction::LoadConstF64 { dst, index })
                         }
                     }
                 }
@@ -414,6 +458,7 @@ pub fn compile_module(module: &Module) -> CompiledModule {
     CompiledModule {
         instructions: compiler.code,
         imports: module.imports.clone(),
+        constant_pool: compiler.constant_pool,
     }
 }
 

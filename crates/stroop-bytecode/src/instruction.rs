@@ -1,5 +1,8 @@
 //! Register-based bytecode instruction format for the Stroop VM.
 
+/// Index into the constant pool.
+pub type ConstPoolId = u16;
+
 /// A single bytecode instruction with register operands.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Instruction {
@@ -8,17 +11,19 @@ pub enum Instruction {
         dst: u8,
         value: i32,
     },
+    /// Load i64 constant from pool: dst = constant_pool[index]
     LoadConstI64 {
         dst: u8,
-        value: i64,
+        index: ConstPoolId,
     },
     LoadConstF32 {
         dst: u8,
         value: f32,
     },
+    /// Load f64 constant from pool: dst = constant_pool[index]
     LoadConstF64 {
         dst: u8,
-        value: f64,
+        index: ConstPoolId,
     },
 
     // Register move
@@ -479,4 +484,14 @@ pub enum Instruction {
     },
 
     Halt,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_instruction_size() {
+        assert_eq!(std::mem::size_of::<Instruction>(), 16);
+    }
 }

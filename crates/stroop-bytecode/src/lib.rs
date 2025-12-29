@@ -11,6 +11,6 @@ pub mod instruction;
 pub mod module;
 pub mod types;
 
-pub use instruction::Instruction;
+pub use instruction::{ConstPoolId, Instruction};
 pub use module::{CompiledModule, Import, Span};
-pub use types::{FuncType, ValueType};
+pub use types::{ConstPoolValue, FuncType, ValueType};

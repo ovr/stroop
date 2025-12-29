@@ -14,4 +14,4 @@ stroop-vm = { path = "crates/stroop-vm" }
 stroop-cli = { path = "crates/stroop-cli" }
 
 [profile.release]
-debug = true
+lto = "fat"

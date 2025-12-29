@@ -9,9 +9,6 @@ license.workspace = true
 name = "stroop"
 path = "src/main.rs"
 
-[profile.release]
-lto = "fat"
-
 [dependencies]
 stroop-text-assembly.workspace = true
 stroop-vm.workspace = true

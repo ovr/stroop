@@ -78,7 +78,8 @@ impl BytecodeVm {
                     self.regs[dst as usize] = Value::I32(value);
                     pc += 1;
                 }
-                Instruction::LoadConstI64 { dst, value } => {
+                Instruction::LoadConstI64 { dst, index } => {
+                    let value = module.constant_pool[index as usize].as_i64();
                     self.regs[dst as usize] = Value::I64(value);
                     pc += 1;
                 }
@@ -86,7 +87,8 @@ impl BytecodeVm {
                     self.regs[dst as usize] = Value::F32(value);
                     pc += 1;
                 }
-                Instruction::LoadConstF64 { dst, value } => {
+                Instruction::LoadConstF64 { dst, index } => {
+                    let value = module.constant_pool[index as usize].as_f64();
                     self.regs[dst as usize] = Value::F64(value);
                     pc += 1;
                 }

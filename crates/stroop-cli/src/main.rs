@@ -5,7 +5,7 @@ use std::fs;
 use std::process;
 use std::time::Instant;
 
-use stroop_text_assembly::{compile_module, parse_module, FuncType, ValueType};
+use stroop_text_assembly::{CompiledModule, FuncType, ValueType, compile_module, parse_module};
 use stroop_vm::BytecodeVm;
 
 fn main() {
@@ -78,6 +78,18 @@ fn dump_bytecode(filename: &str) {
     });
 
     let compiled = compile_module(&module);
+    print_compiled_module(&compiled);
+}
+
+fn print_compiled_module(compiled: &CompiledModule) {
+    // Show constant pool if non-empty
+    if !compiled.constant_pool.is_empty() {
+        println!("; constant pool ({} entries)", compiled.constant_pool.len());
+        for (i, constant) in compiled.constant_pool.iter().enumerate() {
+            println!("{:4}: {:?}", i, constant);
+        }
+        println!();
+    }
 
     println!("; {} instructions", compiled.instructions.len());
     for (i, instr) in compiled.instructions.iter().enumerate() {
@@ -98,13 +110,8 @@ fn run_file(filename: &str, bench: bool, dump: bool) {
 
     let compiled = compile_module(&module);
 
-    // Dump bytecode if requested
     if dump {
-        eprintln!("; {} instructions", compiled.instructions.len());
-        for (i, instr) in compiled.instructions.iter().enumerate() {
-            eprintln!("{:4}: {:?}", i, instr);
-        }
-        eprintln!();
+        print_compiled_module(&compiled);
     }
 
     let mut vm = BytecodeVm::new();

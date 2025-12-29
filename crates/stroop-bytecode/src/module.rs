@@ -1,7 +1,7 @@
 //! Module types for bytecode representation.
 
 use crate::instruction::Instruction;
-use crate::types::FuncType;
+use crate::types::{ConstPoolValue, FuncType};
 
 /// A span in the source code.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -38,4 +38,6 @@ pub struct CompiledModule {
     pub instructions: Vec<Instruction>,
     /// Import declarations (for resolving calls).
     pub imports: Vec<Import>,
+    /// Constant pool for i64/f64 values.
+    pub constant_pool: Vec<ConstPoolValue>,
 }

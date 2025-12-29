@@ -43,6 +43,31 @@ impl std::fmt::Display for ValueType {
     }
 }
 
+/// Value stored in the constant pool (only 64-bit types).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ConstPoolValue {
+    I64(i64),
+    F64(f64),
+}
+
+impl ConstPoolValue {
+    /// Get as i64, panics if wrong type.
+    pub fn as_i64(&self) -> i64 {
+        match self {
+            ConstPoolValue::I64(v) => *v,
+            _ => panic!("expected i64 constant"),
+        }
+    }
+
+    /// Get as f64, panics if wrong type.
+    pub fn as_f64(&self) -> f64 {
+        match self {
+            ConstPoolValue::F64(v) => *v,
+            _ => panic!("expected f64 constant"),
+        }
+    }
+}
+
 /// Function signature with parameter and result types.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct FuncType {
