@@ -2,7 +2,7 @@
 
 use crate::error::RuntimeError;
 use crate::value::Value;
-use stroop_bytecode::{CompiledModule, FuncType, Instruction};
+use stroop_bytecode::{Addr32, CompiledModule, FuncType, Instruction};
 
 /// Host function that can be called from the VM.
 pub type HostFn = Box<dyn Fn(&[Value]) -> Result<Option<Value>, RuntimeError>>;
@@ -18,7 +18,7 @@ pub struct ImportedFunc {
 /// Label for control flow.
 #[derive(Debug, Clone, Copy)]
 struct Label {
-    target: usize,
+    target: Addr32,
     is_loop: bool,
 }
 
@@ -643,7 +643,7 @@ impl BytecodeVm {
                 Instruction::Br { depth } => {
                     let idx = self.label_stack.len() - 1 - depth as usize;
                     let label = self.label_stack[idx];
-                    pc = label.target;
+                    pc = label.target as usize;
                     if label.is_loop {
                         self.label_stack.truncate(idx + 1);
                     } else {
@@ -654,7 +654,7 @@ impl BytecodeVm {
                     if self.regs[cond as usize].as_i32() != 0 {
                         let idx = self.label_stack.len() - 1 - depth as usize;
                         let label = self.label_stack[idx];
-                        pc = label.target;
+                        pc = label.target as usize;
                         if label.is_loop {
                             self.label_stack.truncate(idx + 1);
                         } else {

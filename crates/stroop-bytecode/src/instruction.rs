@@ -3,6 +3,9 @@
 /// Index into the constant pool.
 pub type ConstPoolId = u16;
 
+/// Address (instruction index) for control flow.
+pub type Addr32 = u32;
+
 /// A single bytecode instruction with register operands.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Instruction {
@@ -460,10 +463,10 @@ pub enum Instruction {
 
     // Control flow
     Block {
-        end: usize,
+        end: Addr32,
     },
     Loop {
-        start: usize,
+        start: Addr32,
     },
     Br {
         depth: u32,
@@ -492,6 +495,6 @@ mod tests {
 
     #[test]
     fn test_instruction_size() {
-        assert_eq!(std::mem::size_of::<Instruction>(), 16);
+        assert_eq!(std::mem::size_of::<Instruction>(), 8);
     }
 }

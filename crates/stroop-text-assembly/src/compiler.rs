@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use crate::ast::{ConstValue, Expr, Module};
 use crate::opcode::Opcode;
-use stroop_bytecode::{CompiledModule, ConstPoolId, ConstPoolValue, Instruction};
+use stroop_bytecode::{Addr32, CompiledModule, ConstPoolId, ConstPoolValue, Instruction};
 
 /// Compiler state with register allocation.
 struct Compiler {
@@ -283,14 +283,14 @@ impl Compiler {
                 }
 
                 self.emit(Instruction::End);
-                let end_pos = self.code.len();
+                let end_pos = self.code.len() as Addr32;
                 self.code[block_start] = Instruction::Block { end: end_pos };
             }
 
             Expr::Loop { body, .. } => {
                 let loop_start = self.code.len();
                 self.emit(Instruction::Loop {
-                    start: loop_start + 1,
+                    start: (loop_start + 1) as Addr32,
                 });
 
                 for (i, e) in body.iter().enumerate() {
@@ -372,7 +372,7 @@ impl Compiler {
                     }
 
                     self.emit(Instruction::End);
-                    let end_pos = self.code.len();
+                    let end_pos = self.code.len() as Addr32;
                     self.code[block_start] = Instruction::Block { end: end_pos };
                 } else {
                     // If with else
@@ -403,7 +403,7 @@ impl Compiler {
 
                     self.emit(Instruction::Br { depth: 1 });
                     self.emit(Instruction::End);
-                    let inner_end = self.code.len();
+                    let inner_end = self.code.len() as Addr32;
                     self.code[inner_start] = Instruction::Block { end: inner_end };
 
                     // Then body
@@ -418,7 +418,7 @@ impl Compiler {
                     }
 
                     self.emit(Instruction::End);
-                    let outer_end = self.code.len();
+                    let outer_end = self.code.len() as Addr32;
                     self.code[outer_start] = Instruction::Block { end: outer_end };
                 }
             }
