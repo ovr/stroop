@@ -10,7 +10,7 @@ stroop-bytecode = { path = "../stroop-bytecode" }
 
 [dev-dependencies]
 stroop-text-assembly = { path = "../stroop-text-assembly" }
-codspeed-criterion-compat = "2"
+codspeed-criterion-compat = "4"
 
 [[bench]]
 name = "vm_bench"
