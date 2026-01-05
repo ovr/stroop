@@ -1,8 +1,8 @@
 //! Register-based bytecode virtual machine.
 
-use std::ops::{Index, IndexMut};
 use crate::error::RuntimeError;
 use crate::value::Value;
+use std::ops::{Index, IndexMut};
 use stroop_bytecode::{Addr32, CompiledModule, FuncType, Instruction};
 
 /// Host function that can be called from the VM.

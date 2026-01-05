@@ -1,0 +1,69 @@
+---
+source: crates/stroop-text-assembly/tests/fixtures.rs
+assertion_line: 26
+expression: module
+---
+Module {
+    imports: [
+        Import {
+            module: "console",
+            name: "log",
+            alias: Some(
+                "$log",
+            ),
+            func_type: FuncType {
+                params: [
+                    I32,
+                ],
+                results: [],
+            },
+            span: Span {
+                start: 128,
+                end: 176,
+            },
+        },
+    ],
+    body: [
+        Call {
+            func_idx: 0,
+            func_name: Some(
+                "$log",
+            ),
+            args: [
+                BinaryOp {
+                    opcode: I32Add,
+                    lhs: Const {
+                        value: I32(
+                            1,
+                        ),
+                        span: Span {
+                            start: 243,
+                            end: 256,
+                        },
+                    },
+                    rhs: Const {
+                        value: I32(
+                            1,
+                        ),
+                        span: Span {
+                            start: 257,
+                            end: 270,
+                        },
+                    },
+                    span: Span {
+                        start: 234,
+                        end: 271,
+                    },
+                },
+            ],
+            span: Span {
+                start: 223,
+                end: 272,
+            },
+        },
+    ],
+    span: Span {
+        start: 85,
+        end: 274,
+    },
+}

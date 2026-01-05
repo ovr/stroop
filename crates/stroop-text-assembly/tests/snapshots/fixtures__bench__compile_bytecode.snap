@@ -1,0 +1,181 @@
+---
+source: crates/stroop-text-assembly/tests/fixtures.rs
+assertion_line: 27
+expression: compiled
+---
+CompiledModule {
+    instructions: [
+        LoadConstF64 {
+            dst: 5,
+            index: 0,
+        },
+        LoadConstF64 {
+            dst: 6,
+            index: 1,
+        },
+        LoadConstF64 {
+            dst: 0,
+            index: 2,
+        },
+        Mov {
+            dst: 7,
+            src: 0,
+        },
+        LoadConstF64 {
+            dst: 1,
+            index: 3,
+        },
+        Mov {
+            dst: 7,
+            src: 1,
+        },
+        Mov {
+            dst: 4,
+            src: 6,
+        },
+        Mov {
+            dst: 7,
+            src: 4,
+        },
+        Block {
+            end: 34,
+        },
+        Loop {
+            start: 10,
+        },
+        F64Sub {
+            dst: 0,
+            lhs: 0,
+            rhs: 5,
+        },
+        Mov {
+            dst: 8,
+            src: 0,
+        },
+        F64Lt {
+            dst: 8,
+            lhs: 0,
+            rhs: 6,
+        },
+        BrIf {
+            cond: 8,
+            depth: 1,
+        },
+        Mov {
+            dst: 2,
+            src: 1,
+        },
+        Mov {
+            dst: 7,
+            src: 2,
+        },
+        Mov {
+            dst: 3,
+            src: 2,
+        },
+        Mov {
+            dst: 7,
+            src: 3,
+        },
+        Block {
+            end: 29,
+        },
+        Loop {
+            start: 20,
+        },
+        F64Sub {
+            dst: 2,
+            lhs: 2,
+            rhs: 5,
+        },
+        Mov {
+            dst: 8,
+            src: 2,
+        },
+        F64Le {
+            dst: 8,
+            lhs: 2,
+            rhs: 5,
+        },
+        BrIf {
+            cond: 8,
+            depth: 1,
+        },
+        F64Mul {
+            dst: 3,
+            lhs: 3,
+            rhs: 2,
+        },
+        Mov {
+            dst: 7,
+            src: 3,
+        },
+        Br {
+            depth: 0,
+        },
+        End,
+        End,
+        F64Add {
+            dst: 4,
+            lhs: 4,
+            rhs: 3,
+        },
+        Mov {
+            dst: 7,
+            src: 4,
+        },
+        Br {
+            depth: 0,
+        },
+        End,
+        End,
+        Mov {
+            dst: 8,
+            src: 4,
+        },
+        Call {
+            func: 0,
+            base: 8,
+            argc: 1,
+            dst: 7,
+        },
+        Mov {
+            dst: 0,
+            src: 7,
+        },
+        Halt,
+    ],
+    imports: [
+        Import {
+            module: "console",
+            name: "log",
+            alias: Some(
+                "$log",
+            ),
+            func_type: FuncType {
+                params: [
+                    F64,
+                ],
+                results: [],
+            },
+            span: Span {
+                start: 538,
+                end: 586,
+            },
+        },
+    ],
+    constant_pool: [
+        F64(
+            1.0,
+        ),
+        F64(
+            0.0,
+        ),
+        F64(
+            4000000.0,
+        ),
+        F64(
+            100.0,
+        ),
+    ],
+}

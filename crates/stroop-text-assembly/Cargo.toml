@@ -10,3 +10,4 @@ stroop-bytecode = { path = "../stroop-bytecode" }
 
 [dev-dependencies]
 stroop-vm = { path = "../stroop-vm" }
+insta = "1"

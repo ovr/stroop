@@ -1,0 +1,353 @@
+---
+source: crates/stroop-text-assembly/tests/fixtures.rs
+assertion_line: 27
+expression: module
+---
+Module {
+    imports: [
+        Import {
+            module: "console",
+            name: "log",
+            alias: Some(
+                "$log",
+            ),
+            func_type: FuncType {
+                params: [
+                    F64,
+                ],
+                results: [],
+            },
+            span: Span {
+                start: 538,
+                end: 586,
+            },
+        },
+    ],
+    body: [
+        LocalSet {
+            index: 0,
+            value: Const {
+                value: F64(
+                    4000000.0,
+                ),
+                span: Span {
+                    start: 837,
+                    end: 856,
+                },
+            },
+            span: Span {
+                start: 824,
+                end: 857,
+            },
+        },
+        LocalSet {
+            index: 1,
+            value: Const {
+                value: F64(
+                    100.0,
+                ),
+                span: Span {
+                    start: 873,
+                    end: 888,
+                },
+            },
+            span: Span {
+                start: 860,
+                end: 889,
+            },
+        },
+        LocalSet {
+            index: 4,
+            value: Const {
+                value: F64(
+                    0.0,
+                ),
+                span: Span {
+                    start: 905,
+                    end: 918,
+                },
+            },
+            span: Span {
+                start: 892,
+                end: 919,
+            },
+        },
+        Block {
+            block_type: Empty,
+            body: [
+                Loop {
+                    block_type: Empty,
+                    body: [
+                        LocalSet {
+                            index: 0,
+                            value: BinaryOp {
+                                opcode: F64Sub,
+                                lhs: LocalGet {
+                                    index: 0,
+                                    span: Span {
+                                        start: 1017,
+                                        end: 1030,
+                                    },
+                                },
+                                rhs: Const {
+                                    value: F64(
+                                        1.0,
+                                    ),
+                                    span: Span {
+                                        start: 1031,
+                                        end: 1044,
+                                    },
+                                },
+                                span: Span {
+                                    start: 1008,
+                                    end: 1045,
+                                },
+                            },
+                            span: Span {
+                                start: 995,
+                                end: 1046,
+                            },
+                        },
+                        BrIf {
+                            label_depth: 1,
+                            condition: BinaryOp {
+                                opcode: F64Lt,
+                                lhs: LocalGet {
+                                    index: 0,
+                                    span: Span {
+                                        start: 1094,
+                                        end: 1107,
+                                    },
+                                },
+                                rhs: Const {
+                                    value: F64(
+                                        0.0,
+                                    ),
+                                    span: Span {
+                                        start: 1108,
+                                        end: 1121,
+                                    },
+                                },
+                                span: Span {
+                                    start: 1086,
+                                    end: 1122,
+                                },
+                            },
+                            span: Span {
+                                start: 1077,
+                                end: 1123,
+                            },
+                        },
+                        LocalSet {
+                            index: 2,
+                            value: LocalGet {
+                                index: 1,
+                                span: Span {
+                                    start: 1160,
+                                    end: 1173,
+                                },
+                            },
+                            span: Span {
+                                start: 1147,
+                                end: 1174,
+                            },
+                        },
+                        LocalSet {
+                            index: 3,
+                            value: LocalGet {
+                                index: 2,
+                                span: Span {
+                                    start: 1213,
+                                    end: 1226,
+                                },
+                            },
+                            span: Span {
+                                start: 1200,
+                                end: 1227,
+                            },
+                        },
+                        Block {
+                            block_type: Empty,
+                            body: [
+                                Loop {
+                                    block_type: Empty,
+                                    body: [
+                                        LocalSet {
+                                            index: 2,
+                                            value: BinaryOp {
+                                                opcode: F64Sub,
+                                                lhs: LocalGet {
+                                                    index: 2,
+                                                    span: Span {
+                                                        start: 1342,
+                                                        end: 1355,
+                                                    },
+                                                },
+                                                rhs: Const {
+                                                    value: F64(
+                                                        1.0,
+                                                    ),
+                                                    span: Span {
+                                                        start: 1356,
+                                                        end: 1369,
+                                                    },
+                                                },
+                                                span: Span {
+                                                    start: 1333,
+                                                    end: 1370,
+                                                },
+                                            },
+                                            span: Span {
+                                                start: 1320,
+                                                end: 1371,
+                                            },
+                                        },
+                                        BrIf {
+                                            label_depth: 1,
+                                            condition: BinaryOp {
+                                                opcode: F64Le,
+                                                lhs: LocalGet {
+                                                    index: 2,
+                                                    span: Span {
+                                                        start: 1427,
+                                                        end: 1440,
+                                                    },
+                                                },
+                                                rhs: Const {
+                                                    value: F64(
+                                                        1.0,
+                                                    ),
+                                                    span: Span {
+                                                        start: 1441,
+                                                        end: 1454,
+                                                    },
+                                                },
+                                                span: Span {
+                                                    start: 1419,
+                                                    end: 1455,
+                                                },
+                                            },
+                                            span: Span {
+                                                start: 1410,
+                                                end: 1456,
+                                            },
+                                        },
+                                        LocalSet {
+                                            index: 3,
+                                            value: BinaryOp {
+                                                opcode: F64Mul,
+                                                lhs: LocalGet {
+                                                    index: 3,
+                                                    span: Span {
+                                                        start: 1513,
+                                                        end: 1526,
+                                                    },
+                                                },
+                                                rhs: LocalGet {
+                                                    index: 2,
+                                                    span: Span {
+                                                        start: 1527,
+                                                        end: 1540,
+                                                    },
+                                                },
+                                                span: Span {
+                                                    start: 1504,
+                                                    end: 1541,
+                                                },
+                                            },
+                                            span: Span {
+                                                start: 1491,
+                                                end: 1542,
+                                            },
+                                        },
+                                        Br {
+                                            label_depth: 0,
+                                            span: Span {
+                                                start: 1587,
+                                                end: 1593,
+                                            },
+                                        },
+                                    ],
+                                    span: Span {
+                                        start: 1287,
+                                        end: 1603,
+                                    },
+                                },
+                            ],
+                            span: Span {
+                                start: 1272,
+                                end: 1611,
+                            },
+                        },
+                        LocalSet {
+                            index: 4,
+                            value: BinaryOp {
+                                opcode: F64Add,
+                                lhs: LocalGet {
+                                    index: 4,
+                                    span: Span {
+                                        start: 1662,
+                                        end: 1675,
+                                    },
+                                },
+                                rhs: LocalGet {
+                                    index: 3,
+                                    span: Span {
+                                        start: 1676,
+                                        end: 1689,
+                                    },
+                                },
+                                span: Span {
+                                    start: 1653,
+                                    end: 1690,
+                                },
+                            },
+                            span: Span {
+                                start: 1640,
+                                end: 1691,
+                            },
+                        },
+                        Br {
+                            label_depth: 0,
+                            span: Span {
+                                start: 1728,
+                                end: 1734,
+                            },
+                        },
+                    ],
+                    span: Span {
+                        start: 969,
+                        end: 1740,
+                    },
+                },
+            ],
+            span: Span {
+                start: 958,
+                end: 1744,
+            },
+        },
+        Call {
+            func_idx: 0,
+            func_name: Some(
+                "$log",
+            ),
+            args: [
+                LocalGet {
+                    index: 4,
+                    span: Span {
+                        start: 1778,
+                        end: 1791,
+                    },
+                },
+            ],
+            span: Span {
+                start: 1767,
+                end: 1792,
+            },
+        },
+    ],
+    span: Span {
+        start: 528,
+        end: 1794,
+    },
+}
