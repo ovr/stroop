@@ -36,12 +36,6 @@ CompiledModule {
             dst: 7,
             src: 4,
         },
-        Block {
-            end: 34,
-        },
-        Loop {
-            start: 10,
-        },
         F64Sub {
             dst: 0,
             lhs: 0,
@@ -56,9 +50,9 @@ CompiledModule {
             lhs: 0,
             rhs: 5,
         },
-        BrIf {
+        JumpIf {
             cond: 8,
-            depth: 1,
+            target: 26,
         },
         Mov {
             dst: 2,
@@ -76,12 +70,6 @@ CompiledModule {
             dst: 7,
             src: 3,
         },
-        Block {
-            end: 29,
-        },
-        Loop {
-            start: 20,
-        },
         F64Sub {
             dst: 2,
             lhs: 2,
@@ -96,9 +84,9 @@ CompiledModule {
             lhs: 2,
             rhs: 6,
         },
-        BrIf {
+        JumpIf {
             cond: 8,
-            depth: 1,
+            target: 23,
         },
         F64Mul {
             dst: 3,
@@ -109,11 +97,9 @@ CompiledModule {
             dst: 7,
             src: 3,
         },
-        Br {
-            depth: 0,
+        Jump {
+            target: 16,
         },
-        End,
-        End,
         F64Add {
             dst: 4,
             lhs: 4,
@@ -123,11 +109,9 @@ CompiledModule {
             dst: 7,
             src: 4,
         },
-        Br {
-            depth: 0,
+        Jump {
+            target: 8,
         },
-        End,
-        End,
         Mov {
             dst: 8,
             src: 4,

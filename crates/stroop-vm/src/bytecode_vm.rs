@@ -3,7 +3,7 @@
 use crate::error::RuntimeError;
 use crate::value::Value;
 use std::ops::{Index, IndexMut};
-use stroop_bytecode::{Addr32, CompiledModule, FuncType, Instruction};
+use stroop_bytecode::{CompiledModule, FuncType, Instruction};
 
 /// Host function that can be called from the VM.
 pub type HostFn = Box<dyn Fn(&[Value]) -> Result<Option<Value>, RuntimeError>>;
@@ -14,13 +14,6 @@ pub struct ImportedFunc {
     pub name: String,
     pub func_type: FuncType,
     pub func: HostFn,
-}
-
-/// Label for control flow.
-#[derive(Debug, Clone, Copy)]
-struct Label {
-    target: Addr32,
-    is_loop: bool,
 }
 
 /// Virtual registers indexed by u8.
@@ -61,8 +54,6 @@ impl<T: Copy> IndexMut<u8> for Registers<T> {
 pub struct BytecodeVm {
     /// Fixed-size registers (256 registers).
     regs: Registers<Value>,
-    /// Label stack for control flow.
-    label_stack: Vec<Label>,
     /// Imported functions.
     imports: Vec<ImportedFunc>,
 }
@@ -78,7 +69,6 @@ impl BytecodeVm {
     pub fn new() -> Self {
         Self {
             regs: Registers::new(Value::I32(0)),
-            label_stack: Vec::with_capacity(32),
             imports: Vec::new(),
         }
     }
@@ -661,47 +651,16 @@ impl BytecodeVm {
                 }
 
                 // Control flow
-                Instruction::Block { end } => {
-                    self.label_stack.push(Label {
-                        target: end,
-                        is_loop: false,
-                    });
-                    pc += 1;
+                Instruction::Jump { target } => {
+                    pc = target as usize;
+                    continue;
                 }
-                Instruction::Loop { start } => {
-                    self.label_stack.push(Label {
-                        target: start,
-                        is_loop: true,
-                    });
-                    pc += 1;
-                }
-                Instruction::Br { depth } => {
-                    let idx = self.label_stack.len() - 1 - depth as usize;
-                    let label = self.label_stack[idx];
-                    pc = label.target as usize;
-                    if label.is_loop {
-                        self.label_stack.truncate(idx + 1);
-                    } else {
-                        self.label_stack.truncate(idx);
-                    }
-                }
-                Instruction::BrIf { cond, depth } => {
+                Instruction::JumpIf { cond, target } => {
                     if self.regs[cond].as_i32() != 0 {
-                        let idx = self.label_stack.len() - 1 - depth as usize;
-                        let label = self.label_stack[idx];
-                        pc = label.target as usize;
-                        if label.is_loop {
-                            self.label_stack.truncate(idx + 1);
-                        } else {
-                            self.label_stack.truncate(idx);
-                        }
+                        pc = target as usize;
                     } else {
                         pc += 1;
                     }
-                }
-                Instruction::End => {
-                    self.label_stack.pop();
-                    pc += 1;
                 }
 
                 // Function calls

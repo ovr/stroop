@@ -465,20 +465,15 @@ pub enum Instruction {
     },
 
     // Control flow
-    Block {
-        end: Addr32,
+    /// Unconditional jump to target address
+    Jump {
+        target: Addr32,
     },
-    Loop {
-        start: Addr32,
-    },
-    Br {
-        depth: u32,
-    },
-    BrIf {
+    /// Conditional jump: if reg[cond] != 0, jump to target
+    JumpIf {
         cond: Reg8,
-        depth: u32,
+        target: Addr32,
     },
-    End,
 
     // Function calls
     // Args are in registers base..base+argc, result goes to dst
