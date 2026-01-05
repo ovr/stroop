@@ -11,29 +11,62 @@ env:
 
 jobs:
   build:
-    name: Build & Test
-    runs-on: ubuntu-24.04
+    name: Build & Test (${{ matrix.os }}-${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: linux
+            arch: x86_64
+            runner: ubuntu-24.04
+          - os: linux
+            arch: arm64
+            runner: ubuntu-24.04-arm
+          - os: macos
+            arch: arm64
+            runner: macos-15
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
       - run: cargo build --release
       - run: cargo test
 
-  bench:
-    name: Benchmark
-    runs-on: ubuntu-24.04
+  bench_linux:
+    name: Benchmark (linux-${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
 
       - name: Install cargo-codspeed
         run: cargo install cargo-codspeed --locked
 
       - name: Build benchmarks
         run: cargo codspeed build -p stroop-vm -m walltime
+        env:
+          BENCH_SUFFIX: linux-${{ matrix.arch }}
 
       - name: Run benchmarks
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         uses: CodSpeedHQ/action@v4
         with:
           mode: walltime
           run: cargo codspeed run -p stroop-vm
+        env:
+          BENCH_SUFFIX: linux-${{ matrix.arch }}
+
+  bench_darwin:
+    name: Benchmark (macos-arm64)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run benchmarks
+        run: cargo bench -p stroop-vm

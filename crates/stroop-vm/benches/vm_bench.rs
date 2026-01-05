@@ -8,7 +8,14 @@ fn bench_factorial(c: &mut Criterion) {
     let module = parse_module(source).unwrap();
     let compiled = compile_module(&module);
 
-    let mut group = c.benchmark_group("vm");
+    // Use BENCH_SUFFIX env var to differentiate benchmarks across platforms in CI
+    let suffix = std::env::var("BENCH_SUFFIX").unwrap_or_default();
+    let group_name = if suffix.is_empty() {
+        "vm".to_string()
+    } else {
+        format!("vm-{suffix}")
+    };
+    let mut group = c.benchmark_group(&group_name);
     group.sample_size(10);
     group.sampling_mode(SamplingMode::Flat);
     group.measurement_time(Duration::from_secs(10));

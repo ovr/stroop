@@ -1,0 +1,53 @@
+---
+source: crates/stroop-text-assembly/tests/fixtures.rs
+assertion_line: 26
+expression: compiled
+---
+CompiledModule {
+    instructions: [
+        LoadConstI32 {
+            dst: 3,
+            value: 1,
+        },
+        LoadConstI32 {
+            dst: 4,
+            value: 1,
+        },
+        I32Add {
+            dst: 2,
+            lhs: 3,
+            rhs: 4,
+        },
+        Call {
+            func: 0,
+            base: 2,
+            argc: 1,
+            dst: 1,
+        },
+        Mov {
+            dst: 0,
+            src: 1,
+        },
+        Halt,
+    ],
+    imports: [
+        Import {
+            module: "console",
+            name: "log",
+            alias: Some(
+                "$log",
+            ),
+            func_type: FuncType {
+                params: [
+                    I32,
+                ],
+                results: [],
+            },
+            span: Span {
+                start: 128,
+                end: 176,
+            },
+        },
+    ],
+    constant_pool: [],
+}

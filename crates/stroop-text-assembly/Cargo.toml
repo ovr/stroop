@@ -7,6 +7,8 @@ license.workspace = true
 
 [dependencies]
 stroop-bytecode = { path = "../stroop-bytecode" }
+indexmap = "2"
 
 [dev-dependencies]
 stroop-vm = { path = "../stroop-vm" }
+insta = "1"
