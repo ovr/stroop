@@ -1,3 +1,18 @@
+# CI workflow for Stroop VM
+#
+# Runs build, tests, and benchmarks across multiple platforms:
+# - Linux: x86_64 and arm64
+# - macOS: x86_64 (Intel) and arm64 (Apple Silicon)
+#
+# Benchmarks:
+# - Linux: Uses CodSpeed for continuous performance tracking
+# - macOS: Uses cargo bench (criterion) since CodSpeed doesn't support Darwin
+#
+# Benchmark groups are suffixed with platform (e.g., vm-linux-x86_64, vm-linux-arm64)
+# via BENCH_SUFFIX env var to allow CodSpeed to track each platform separately.
+#
+# Fork PRs skip CodSpeed upload since they don't have access to secrets.
+
 name: CI
 
 on:
@@ -34,7 +49,7 @@ jobs:
       - run: cargo build --release
       - run: cargo test
 
-  bench:
+  bench_linux:
     name: Benchmark (linux-${{ matrix.arch }})
     runs-on: ${{ matrix.runner }}
     strategy:
@@ -53,11 +68,31 @@ jobs:
 
       - name: Build benchmarks
         run: cargo codspeed build -p stroop-vm -m walltime
+        env:
+          BENCH_SUFFIX: linux-${{ matrix.arch }}
 
       - name: Run benchmarks
-        uses: CodSpeedHQ/action@v4
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        uses: CodSpeedHQ/action@v4
         with:
           mode: walltime
           run: cargo codspeed run -p stroop-vm
-          name: linux-${{ matrix.arch }}
+        env:
+          BENCH_SUFFIX: linux-${{ matrix.arch }}
+
+  bench_darwin:
+    name: Benchmark (macos-${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: macos-15-intel
+          - arch: arm64
+            runner: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run benchmarks
+        run: cargo bench -p stroop-vm
