@@ -6,6 +6,15 @@ use crate::ast::{ConstValue, Expr, Module};
 use crate::opcode::Opcode;
 use stroop_bytecode::{Addr32, CompiledModule, ConstPoolId, ConstPoolValue, Instruction};
 
+/// Compile-time label for control flow resolution.
+#[derive(Debug, Clone, Copy)]
+struct CompileLabel {
+    /// Target address (for loops: start, for blocks: to be patched)
+    target: Addr32,
+    /// Whether this is a loop (determines where br jumps to)
+    is_loop: bool,
+}
+
 /// Compiler state with register allocation.
 struct Compiler {
     code: Vec<Instruction>,
@@ -19,6 +28,10 @@ struct Compiler {
     constant_pool: Vec<ConstPoolValue>,
     /// Deduplication map: value bits -> pool index
     pool_index_map: IndexMap<u64, ConstPoolId>,
+    /// Compile-time label stack for resolving branch targets
+    label_stack: Vec<CompileLabel>,
+    /// Pending patches: (instruction_index, label_stack_depth) for br/br_if to blocks
+    pending_patches: Vec<(usize, usize)>,
 }
 
 impl Compiler {
@@ -30,6 +43,8 @@ impl Compiler {
             const_cache: IndexMap::new(),
             constant_pool: Vec::new(),
             pool_index_map: IndexMap::new(),
+            label_stack: Vec::with_capacity(32),
+            pending_patches: Vec::new(),
         }
     }
 
@@ -268,8 +283,12 @@ impl Compiler {
             }
 
             Expr::Block { body, .. } => {
-                let block_start = self.code.len();
-                self.emit(Instruction::Block { end: 0 }); // placeholder
+                // Push block label (target will be patched when block ends)
+                let label_idx = self.label_stack.len();
+                self.label_stack.push(CompileLabel {
+                    target: 0, // placeholder, will be patched
+                    is_loop: false,
+                });
 
                 for (i, e) in body.iter().enumerate() {
                     let is_last = i == body.len() - 1;
@@ -282,15 +301,33 @@ impl Compiler {
                     }
                 }
 
-                self.emit(Instruction::End);
+                // Block ends here - patch all pending jumps to this label
                 let end_pos = self.code.len() as Addr32;
-                self.code[block_start] = Instruction::Block { end: end_pos };
+                self.label_stack[label_idx].target = end_pos;
+
+                // Patch pending Jump/JumpIf instructions that target this label
+                self.pending_patches.retain(|(instr_idx, target_label_idx)| {
+                    if *target_label_idx == label_idx {
+                        match &mut self.code[*instr_idx] {
+                            Instruction::Jump { target } => *target = end_pos,
+                            Instruction::JumpIf { target, .. } => *target = end_pos,
+                            _ => {}
+                        }
+                        false // remove from pending
+                    } else {
+                        true // keep in pending
+                    }
+                });
+
+                self.label_stack.pop();
             }
 
             Expr::Loop { body, .. } => {
-                let loop_start = self.code.len();
-                self.emit(Instruction::Loop {
-                    start: (loop_start + 1) as Addr32,
+                // Loop target is the start (for continue)
+                let loop_start = self.code.len() as Addr32;
+                self.label_stack.push(CompileLabel {
+                    target: loop_start,
+                    is_loop: true,
                 });
 
                 for (i, e) in body.iter().enumerate() {
@@ -304,13 +341,24 @@ impl Compiler {
                     }
                 }
 
-                self.emit(Instruction::End);
+                self.label_stack.pop();
             }
 
             Expr::Br { label_depth, .. } => {
-                self.emit(Instruction::Br {
-                    depth: *label_depth,
-                });
+                let label_idx = self.label_stack.len() - 1 - *label_depth as usize;
+                let label = self.label_stack[label_idx];
+
+                if label.is_loop {
+                    // Loop: target is known (start of loop)
+                    self.emit(Instruction::Jump {
+                        target: label.target,
+                    });
+                } else {
+                    // Block: target not yet known, emit placeholder and record for patching
+                    let instr_idx = self.code.len();
+                    self.emit(Instruction::Jump { target: 0 });
+                    self.pending_patches.push((instr_idx, label_idx));
+                }
             }
 
             Expr::BrIf {
@@ -318,14 +366,27 @@ impl Compiler {
                 condition,
                 ..
             } => {
-                // Optimize: if condition is a comparison, compile it directly to temp
-                // Otherwise use a temp register
                 let cond_reg = self.alloc_temp();
                 self.compile_expr(condition, cond_reg);
-                self.emit(Instruction::BrIf {
-                    cond: cond_reg,
-                    depth: *label_depth,
-                });
+
+                let label_idx = self.label_stack.len() - 1 - *label_depth as usize;
+                let label = self.label_stack[label_idx];
+
+                if label.is_loop {
+                    // Loop: target is known (start of loop)
+                    self.emit(Instruction::JumpIf {
+                        cond: cond_reg,
+                        target: label.target,
+                    });
+                } else {
+                    // Block: target not yet known, emit placeholder and record for patching
+                    let instr_idx = self.code.len();
+                    self.emit(Instruction::JumpIf {
+                        cond: cond_reg,
+                        target: 0,
+                    });
+                    self.pending_patches.push((instr_idx, label_idx));
+                }
             }
 
             Expr::If {
@@ -339,26 +400,29 @@ impl Compiler {
                 self.compile_expr(condition, cond_reg);
 
                 if else_body.is_none() {
-                    // Simple if without else
-                    let block_start = self.code.len();
-                    self.emit(Instruction::Block { end: 0 });
+                    // Simple if without else:
+                    // JumpIf (inverted) to end if condition is false
+                    // <then body>
+                    // end:
 
-                    // Branch to end if condition is zero
-                    // We need to invert: emit cond == 0, then br_if
+                    // Invert condition: emit cond == 0
                     let zero_reg = self.alloc_temp();
                     self.emit(Instruction::LoadConstI32 {
                         dst: zero_reg,
                         value: 0,
                     });
-                    let cmp_reg = self.alloc_temp();
+                    let inv_cond_reg = self.alloc_temp();
                     self.emit(Instruction::I32Eq {
-                        dst: cmp_reg,
+                        dst: inv_cond_reg,
                         lhs: cond_reg,
                         rhs: zero_reg,
                     });
-                    self.emit(Instruction::BrIf {
-                        cond: cmp_reg,
-                        depth: 0,
+
+                    // Jump to end if inverted condition is true (i.e., original was false)
+                    let jump_idx = self.code.len();
+                    self.emit(Instruction::JumpIf {
+                        cond: inv_cond_reg,
+                        target: 0, // placeholder
                     });
 
                     for (i, e) in then_body.iter().enumerate() {
@@ -371,21 +435,24 @@ impl Compiler {
                         }
                     }
 
-                    self.emit(Instruction::End);
+                    // Patch the jump to point here
                     let end_pos = self.code.len() as Addr32;
-                    self.code[block_start] = Instruction::Block { end: end_pos };
+                    if let Instruction::JumpIf { target, .. } = &mut self.code[jump_idx] {
+                        *target = end_pos;
+                    }
                 } else {
-                    // If with else
-                    let outer_start = self.code.len();
-                    self.emit(Instruction::Block { end: 0 });
+                    // If with else:
+                    // JumpIf cond to then_body
+                    // <else body>
+                    // Jump to end
+                    // then_start:
+                    // <then body>
+                    // end:
 
-                    let inner_start = self.code.len();
-                    self.emit(Instruction::Block { end: 0 });
-
-                    // If condition is true, branch past else
-                    self.emit(Instruction::BrIf {
+                    let jump_to_then_idx = self.code.len();
+                    self.emit(Instruction::JumpIf {
                         cond: cond_reg,
-                        depth: 0,
+                        target: 0, // placeholder
                     });
 
                     // Else body
@@ -401,10 +468,15 @@ impl Compiler {
                         }
                     }
 
-                    self.emit(Instruction::Br { depth: 1 });
-                    self.emit(Instruction::End);
-                    let inner_end = self.code.len() as Addr32;
-                    self.code[inner_start] = Instruction::Block { end: inner_end };
+                    // Jump over then body
+                    let jump_to_end_idx = self.code.len();
+                    self.emit(Instruction::Jump { target: 0 }); // placeholder
+
+                    // Patch jump_to_then to point here
+                    let then_start = self.code.len() as Addr32;
+                    if let Instruction::JumpIf { target, .. } = &mut self.code[jump_to_then_idx] {
+                        *target = then_start;
+                    }
 
                     // Then body
                     for (i, e) in then_body.iter().enumerate() {
@@ -417,9 +489,11 @@ impl Compiler {
                         }
                     }
 
-                    self.emit(Instruction::End);
-                    let outer_end = self.code.len() as Addr32;
-                    self.code[outer_start] = Instruction::Block { end: outer_end };
+                    // Patch jump_to_end to point here
+                    let end_pos = self.code.len() as Addr32;
+                    if let Instruction::Jump { target } = &mut self.code[jump_to_end_idx] {
+                        *target = end_pos;
+                    }
                 }
             }
         }
