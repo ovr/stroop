@@ -1,6 +1,5 @@
 ---
 source: crates/stroop-text-assembly/tests/fixtures.rs
-assertion_line: 27
 expression: compiled
 ---
 CompiledModule {
@@ -31,7 +30,7 @@ CompiledModule {
         },
         Mov {
             dst: 4,
-            src: 6,
+            src: 5,
         },
         Mov {
             dst: 7,
@@ -46,7 +45,7 @@ CompiledModule {
         F64Sub {
             dst: 0,
             lhs: 0,
-            rhs: 5,
+            rhs: 6,
         },
         Mov {
             dst: 8,
@@ -55,7 +54,7 @@ CompiledModule {
         F64Lt {
             dst: 8,
             lhs: 0,
-            rhs: 6,
+            rhs: 5,
         },
         BrIf {
             cond: 8,
@@ -86,7 +85,7 @@ CompiledModule {
         F64Sub {
             dst: 2,
             lhs: 2,
-            rhs: 5,
+            rhs: 6,
         },
         Mov {
             dst: 8,
@@ -95,7 +94,7 @@ CompiledModule {
         F64Le {
             dst: 8,
             lhs: 2,
-            rhs: 5,
+            rhs: 6,
         },
         BrIf {
             cond: 8,
@@ -166,10 +165,10 @@ CompiledModule {
     ],
     constant_pool: [
         F64(
-            1.0,
+            0.0,
         ),
         F64(
-            0.0,
+            1.0,
         ),
         F64(
             4000000.0,

@@ -1,6 +1,6 @@
 //! Compiler that transforms AST to register-based bytecode.
 
-use std::collections::HashMap;
+use indexmap::IndexMap;
 
 use crate::ast::{ConstValue, Expr, Module};
 use crate::opcode::Opcode;
@@ -14,11 +14,11 @@ struct Compiler {
     /// First temp register (after locals and cached constants)
     first_temp: u8,
     /// Cache of constants to their dedicated registers (key is f64 bits for reliable equality)
-    const_cache: HashMap<u64, u8>,
+    const_cache: IndexMap<u64, u8>,
     /// Constant pool for i64/f64 values
     constant_pool: Vec<ConstPoolValue>,
     /// Deduplication map: value bits -> pool index
-    pool_index_map: HashMap<u64, ConstPoolId>,
+    pool_index_map: IndexMap<u64, ConstPoolId>,
 }
 
 impl Compiler {
@@ -27,9 +27,9 @@ impl Compiler {
             code: Vec::new(),
             next_reg: num_locals,
             first_temp: num_locals,
-            const_cache: HashMap::new(),
+            const_cache: IndexMap::new(),
             constant_pool: Vec::new(),
-            pool_index_map: HashMap::new(),
+            pool_index_map: IndexMap::new(),
         }
     }
 
@@ -69,7 +69,7 @@ impl Compiler {
 
     /// Preload frequently used constants into dedicated registers.
     fn preload_constants(&mut self, module: &Module) {
-        let mut constants = HashMap::new();
+        let mut constants = IndexMap::new();
         for expr in &module.body {
             collect_constants(expr, &mut constants);
         }
@@ -607,7 +607,7 @@ fn unary_op_instruction(opcode: Opcode, dst: u8, src: u8) -> Instruction {
 }
 
 /// Collect all f64 constants from an expression and count their occurrences.
-fn collect_constants(expr: &Expr, constants: &mut HashMap<u64, usize>) {
+fn collect_constants(expr: &Expr, constants: &mut IndexMap<u64, usize>) {
     match expr {
         Expr::Const { value, .. } => {
             if let ConstValue::F64(v) = value {
