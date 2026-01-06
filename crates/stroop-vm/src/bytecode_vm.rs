@@ -656,10 +656,33 @@ impl BytecodeVm {
                     continue;
                 }
                 Instruction::JumpIf { cond, target } => {
-                    if self.regs[cond].as_i32() != 0 {
-                        pc = target as usize;
-                    } else {
+                    // ARM64 optimization: avoid `csinc` (conditional select increment)
+                    //
+                    // A naive if/else pattern like:
+                    //   if cond != 0 { pc = target } else { pc += 1 }
+                    // compiles to ARM64 `csinc x21, x8, x21, ne` which creates a data
+                    // dependency on the program counter. The CPU cannot predict the next
+                    // instruction address until csinc completes, causing pipeline stalls.
+                    //
+                    // By placing `continue` on the taken branch (jump case), we create
+                    // asymmetric control flow that LLVM cannot merge into csinc. Instead,
+                    // it generates `cbz`/`b` branches that the Branch Target Buffer can
+                    // predict, resulting in ~40% faster execution on Apple Silicon.
+                    //
+                    // This pattern also works well on x86_64 where it compiles to efficient
+                    // conditional jumps (no performance regression).
+                    //
+                    // Benchmarks (bench.sat):
+                    //   ARM64 (Apple M3): 6.4s (csinc) -> 3.8s (this pattern)
+                    //   x86_64 (AMD EPYC): 5.8s -> 5.7s (no regression)
+                    let cond_val = self.regs[cond].as_i32();
+                    if cond_val == 0 {
                         pc += 1;
+                    } else {
+                        pc = target as usize;
+
+                        // continue breaks LLVM csinc optimization
+                        continue;
                     }
                 }
 
