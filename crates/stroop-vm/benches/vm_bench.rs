@@ -6,7 +6,7 @@ use stroop_vm::BytecodeVm;
 fn bench_factorial(c: &mut Criterion) {
     let source = include_str!("../../../examples/bench.sat");
     let module = parse_module(source).unwrap();
-    let compiled = compile_module(&module);
+    let compiled = compile_module(&module).unwrap();
 
     // Use BENCH_SUFFIX env var to differentiate benchmarks across platforms in CI
     let suffix = std::env::var("BENCH_SUFFIX").unwrap_or_default();

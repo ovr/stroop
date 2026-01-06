@@ -112,11 +112,30 @@ impl From<LexError> for ParseError {
     }
 }
 
+/// Compiler errors.
+#[derive(Debug, Clone, PartialEq)]
+pub enum CompileError {
+    ConstantPoolOverflow { count: usize },
+}
+
+impl fmt::Display for CompileError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            CompileError::ConstantPoolOverflow { count } => {
+                write!(f, "constant pool overflow: {} constants (max 65535)", count)
+            }
+        }
+    }
+}
+
+impl std::error::Error for CompileError {}
+
 /// Combined error type for the crate.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Error {
     Lex(LexError),
     Parse(ParseError),
+    Compile(CompileError),
 }
 
 impl fmt::Display for Error {
@@ -124,6 +143,7 @@ impl fmt::Display for Error {
         match self {
             Error::Lex(e) => write!(f, "{}", e),
             Error::Parse(e) => write!(f, "{}", e),
+            Error::Compile(e) => write!(f, "{}", e),
         }
     }
 }
@@ -133,6 +153,7 @@ impl std::error::Error for Error {
         match self {
             Error::Lex(e) => Some(e),
             Error::Parse(e) => Some(e),
+            Error::Compile(e) => Some(e),
         }
     }
 }
@@ -146,5 +167,11 @@ impl From<LexError> for Error {
 impl From<ParseError> for Error {
     fn from(e: ParseError) -> Self {
         Error::Parse(e)
+    }
+}
+
+impl From<CompileError> for Error {
+    fn from(e: CompileError) -> Self {
+        Error::Compile(e)
     }
 }

@@ -24,10 +24,8 @@ struct Compiler {
     first_temp: u8,
     /// Cache of constants to their dedicated registers (key is f64 bits for reliable equality)
     const_cache: IndexMap<u64, u8>,
-    /// Constant pool for i64/f64 values
-    constant_pool: Vec<ConstPoolValue>,
-    /// Deduplication map: value bits -> pool index
-    pool_index_map: IndexMap<u64, ConstPoolId>,
+    /// Constant pool map: ConstPoolValue -> pool index (IndexMap preserves insertion order)
+    pool_index_map: IndexMap<ConstPoolValue, ConstPoolId>,
     /// Compile-time label stack for resolving branch targets
     label_stack: Vec<CompileLabel>,
     /// Pending patches: (instruction_index, label_stack_depth) for br/br_if to blocks
@@ -41,44 +39,19 @@ impl Compiler {
             next_reg: num_locals,
             first_temp: num_locals,
             const_cache: IndexMap::new(),
-            constant_pool: Vec::new(),
             pool_index_map: IndexMap::new(),
             label_stack: Vec::with_capacity(32),
             pending_patches: Vec::new(),
         }
     }
 
-    /// Add an i64 constant to the pool, returning its index.
-    /// Deduplicates based on bit representation.
-    fn add_i64_to_pool(&mut self, value: i64) -> ConstPoolId {
-        let bits = value as u64;
-        if let Some(&index) = self.pool_index_map.get(&bits) {
+    /// Add a constant to the pool, returning its index.
+    fn add_const_to_pool(&mut self, key: ConstPoolValue) -> ConstPoolId {
+        if let Some(&index) = self.pool_index_map.get(&key) {
             return index;
         }
-        let index = self.constant_pool.len() as ConstPoolId;
-        assert!(
-            index < ConstPoolId::MAX,
-            "constant pool overflow (>65535 constants)"
-        );
-        self.constant_pool.push(ConstPoolValue::I64(value));
-        self.pool_index_map.insert(bits, index);
-        index
-    }
-
-    /// Add an f64 constant to the pool, returning its index.
-    /// Deduplicates based on bit representation (handles NaN correctly).
-    fn add_f64_to_pool(&mut self, value: f64) -> ConstPoolId {
-        let bits = value.to_bits();
-        if let Some(&index) = self.pool_index_map.get(&bits) {
-            return index;
-        }
-        let index = self.constant_pool.len() as ConstPoolId;
-        assert!(
-            index < ConstPoolId::MAX,
-            "constant pool overflow (>65535 constants)"
-        );
-        self.constant_pool.push(ConstPoolValue::F64(value));
-        self.pool_index_map.insert(bits, index);
+        let index = self.pool_index_map.len() as ConstPoolId;
+        self.pool_index_map.insert(key, index);
         index
     }
 
@@ -94,7 +67,7 @@ impl Compiler {
             // Only cache constants used more than once
             if count > 1 {
                 let reg = self.alloc_temp();
-                let index = self.add_f64_to_pool(f64::from_bits(bits));
+                let index = self.add_const_to_pool(ConstPoolValue::F64(f64::from_bits(bits)));
                 self.emit(Instruction::LoadConstF64 { dst: reg, index });
                 self.const_cache.insert(bits, reg);
             }
@@ -161,7 +134,7 @@ impl Compiler {
                         }
                         ConstValue::I64(v) => {
                             // Use constant pool for i64
-                            let index = self.add_i64_to_pool(*v);
+                            let index = self.add_const_to_pool(ConstPoolValue::I64(*v));
                             self.emit(Instruction::LoadConstI64 { dst, index })
                         }
                         ConstValue::F32(v) => {
@@ -170,7 +143,7 @@ impl Compiler {
                         }
                         ConstValue::F64(v) => {
                             // Use constant pool for f64
-                            let index = self.add_f64_to_pool(*v);
+                            let index = self.add_const_to_pool(ConstPoolValue::F64(*v));
                             self.emit(Instruction::LoadConstF64 { dst, index })
                         }
                     }
@@ -306,18 +279,19 @@ impl Compiler {
                 self.label_stack[label_idx].target = end_pos;
 
                 // Patch pending Jump/JumpIf instructions that target this label
-                self.pending_patches.retain(|(instr_idx, target_label_idx)| {
-                    if *target_label_idx == label_idx {
-                        match &mut self.code[*instr_idx] {
-                            Instruction::Jump { target } => *target = end_pos,
-                            Instruction::JumpIf { target, .. } => *target = end_pos,
-                            _ => {}
+                self.pending_patches
+                    .retain(|(instr_idx, target_label_idx)| {
+                        if *target_label_idx == label_idx {
+                            match &mut self.code[*instr_idx] {
+                                Instruction::Jump { target } => *target = end_pos,
+                                Instruction::JumpIf { target, .. } => *target = end_pos,
+                                _ => {}
+                            }
+                            false // remove from pending
+                        } else {
+                            true // keep in pending
                         }
-                        false // remove from pending
-                    } else {
-                        true // keep in pending
-                    }
-                });
+                    });
 
                 self.label_stack.pop();
             }
@@ -501,7 +475,7 @@ impl Compiler {
 }
 
 /// Compile a module AST to register-based bytecode.
-pub fn compile_module(module: &Module) -> CompiledModule {
+pub fn compile_module(module: &Module) -> Result<CompiledModule, crate::error::CompileError> {
     // Count locals used in the module
     let num_locals = count_locals(module);
 
@@ -529,11 +503,17 @@ pub fn compile_module(module: &Module) -> CompiledModule {
 
     compiler.emit(Instruction::Halt);
 
-    CompiledModule {
+    if compiler.pool_index_map.len() > ConstPoolId::MAX as usize {
+        return Err(crate::error::CompileError::ConstantPoolOverflow {
+            count: compiler.pool_index_map.len(),
+        });
+    }
+
+    Ok(CompiledModule {
         instructions: compiler.code,
         imports: module.imports.clone(),
-        constant_pool: compiler.constant_pool,
-    }
+        constant_pool: compiler.pool_index_map.keys().copied().collect(),
+    })
 }
 
 /// Count the maximum local index used in a module.

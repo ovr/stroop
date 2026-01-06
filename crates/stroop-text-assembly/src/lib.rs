@@ -27,7 +27,7 @@ pub mod parser;
 
 pub use ast::{BlockType, ConstValue, Expr, Module};
 pub use compiler::compile_module;
-pub use error::{Error, LexError, ParseError, SourceLocation};
+pub use error::{CompileError, Error, LexError, ParseError, SourceLocation};
 pub use lexer::{Token, TokenKind};
 pub use opcode::Opcode;
 pub use parser::{ModuleParser, Parser};
@@ -132,51 +132,58 @@ mod integration_tests {
     use super::*;
     use stroop_vm::{BytecodeVm, Value};
 
+    type TestResult = Result<(), Box<dyn std::error::Error>>;
+
     /// Helper to execute a module and get the last register value
-    fn run_module(code: &str) -> Option<Value> {
-        let module = parse_module(code).unwrap();
-        let compiled = compile_module(&module);
+    fn run_module(code: &str) -> Result<Option<Value>, Box<dyn std::error::Error>> {
+        let module = parse_module(code)?;
+        let compiled = compile_module(&module)?;
         let mut vm = BytecodeVm::new();
-        vm.execute(&compiled).unwrap()
+        Ok(vm.execute(&compiled)?)
     }
 
     #[test]
-    fn test_i32_add() {
-        let result = run_module("(module (i32.add (i32.const 1) (i32.const 2)))");
+    fn test_i32_add() -> TestResult {
+        let result = run_module("(module (i32.add (i32.const 1) (i32.const 2)))")?;
         assert_eq!(result, Some(Value::I32(3)));
+        Ok(())
     }
 
     #[test]
-    fn test_i64_add() {
-        let result = run_module("(module (i64.add (i64.const 1000000000000) (i64.const 1)))");
+    fn test_i64_add() -> TestResult {
+        let result = run_module("(module (i64.add (i64.const 1000000000000) (i64.const 1)))")?;
         assert_eq!(result, Some(Value::I64(1000000000001)));
+        Ok(())
     }
 
     #[test]
-    fn test_f64_add() {
-        let result = run_module("(module (f64.add (f64.const 1.5) (f64.const 2.5)))");
+    fn test_f64_add() -> TestResult {
+        let result = run_module("(module (f64.add (f64.const 1.5) (f64.const 2.5)))")?;
         match result {
             Some(Value::F64(v)) => assert!((v - 4.0).abs() < 0.0001),
             _ => panic!("expected f64"),
         }
+        Ok(())
     }
 
     #[test]
-    fn test_nested_expr() {
+    fn test_nested_expr() -> TestResult {
         // (1 + 2) * 3 = 9
         let result =
-            run_module("(module (i32.mul (i32.add (i32.const 1) (i32.const 2)) (i32.const 3)))");
+            run_module("(module (i32.mul (i32.add (i32.const 1) (i32.const 2)) (i32.const 3)))")?;
         assert_eq!(result, Some(Value::I32(9)));
+        Ok(())
     }
 
     #[test]
-    fn test_i32_comparison() {
-        let result = run_module("(module (i32.lt_s (i32.const 1) (i32.const 2)))");
+    fn test_i32_comparison() -> TestResult {
+        let result = run_module("(module (i32.lt_s (i32.const 1) (i32.const 2)))")?;
         assert_eq!(result, Some(Value::I32(1)));
+        Ok(())
     }
 
     #[test]
-    fn test_module_with_import() {
+    fn test_module_with_import() -> TestResult {
         let mut vm = BytecodeVm::new();
 
         vm.register_host_fn(
@@ -193,11 +200,11 @@ mod integration_tests {
                 (call $log (i32.add (i32.const 1) (i32.const 1)))
             )
             "#,
-        )
-        .unwrap();
+        )?;
 
-        let compiled = compile_module(&module);
-        let result = vm.execute(&compiled).unwrap();
+        let compiled = compile_module(&module)?;
+        let result = vm.execute(&compiled)?;
         assert_eq!(result, Some(Value::I32(2)));
+        Ok(())
     }
 }
