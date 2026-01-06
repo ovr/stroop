@@ -128,6 +128,33 @@ pub enum Opcode {
     F64Div = 0xA3,
     F64Min = 0xA4,
     F64Max = 0xA5,
+
+    // === Type Conversions (0xA7-0xBF) ===
+    I32WrapI64 = 0xA7,
+    I64ExtendI32S = 0xAC,
+    I64ExtendI32U = 0xAD,
+    I32TruncF32S = 0xA8,
+    I32TruncF32U = 0xA9,
+    I32TruncF64S = 0xAA,
+    I32TruncF64U = 0xAB,
+    I64TruncF32S = 0xAE,
+    I64TruncF32U = 0xAF,
+    I64TruncF64S = 0xB0,
+    I64TruncF64U = 0xB1,
+    F32ConvertI32S = 0xB2,
+    F32ConvertI32U = 0xB3,
+    F32ConvertI64S = 0xB4,
+    F32ConvertI64U = 0xB5,
+    F32DemoteF64 = 0xB6,
+    F64ConvertI32S = 0xB7,
+    F64ConvertI32U = 0xB8,
+    F64ConvertI64S = 0xB9,
+    F64ConvertI64U = 0xBA,
+    F64PromoteF32 = 0xBB,
+    I32ReinterpretF32 = 0xBC,
+    I64ReinterpretF64 = 0xBD,
+    F32ReinterpretI32 = 0xBE,
+    F64ReinterpretI64 = 0xBF,
 }
 
 impl Opcode {
@@ -257,6 +284,33 @@ impl Opcode {
             "f64.div" => Some(Opcode::F64Div),
             "f64.min" => Some(Opcode::F64Min),
             "f64.max" => Some(Opcode::F64Max),
+
+            // Type conversions
+            "i32.wrap_i64" => Some(Opcode::I32WrapI64),
+            "i64.extend_i32_s" => Some(Opcode::I64ExtendI32S),
+            "i64.extend_i32_u" => Some(Opcode::I64ExtendI32U),
+            "i32.trunc_f32_s" => Some(Opcode::I32TruncF32S),
+            "i32.trunc_f32_u" => Some(Opcode::I32TruncF32U),
+            "i32.trunc_f64_s" => Some(Opcode::I32TruncF64S),
+            "i32.trunc_f64_u" => Some(Opcode::I32TruncF64U),
+            "i64.trunc_f32_s" => Some(Opcode::I64TruncF32S),
+            "i64.trunc_f32_u" => Some(Opcode::I64TruncF32U),
+            "i64.trunc_f64_s" => Some(Opcode::I64TruncF64S),
+            "i64.trunc_f64_u" => Some(Opcode::I64TruncF64U),
+            "f32.convert_i32_s" => Some(Opcode::F32ConvertI32S),
+            "f32.convert_i32_u" => Some(Opcode::F32ConvertI32U),
+            "f32.convert_i64_s" => Some(Opcode::F32ConvertI64S),
+            "f32.convert_i64_u" => Some(Opcode::F32ConvertI64U),
+            "f32.demote_f64" => Some(Opcode::F32DemoteF64),
+            "f64.convert_i32_s" => Some(Opcode::F64ConvertI32S),
+            "f64.convert_i32_u" => Some(Opcode::F64ConvertI32U),
+            "f64.convert_i64_s" => Some(Opcode::F64ConvertI64S),
+            "f64.convert_i64_u" => Some(Opcode::F64ConvertI64U),
+            "f64.promote_f32" => Some(Opcode::F64PromoteF32),
+            "i32.reinterpret_f32" => Some(Opcode::I32ReinterpretF32),
+            "i64.reinterpret_f64" => Some(Opcode::I64ReinterpretF64),
+            "f32.reinterpret_i32" => Some(Opcode::F32ReinterpretI32),
+            "f64.reinterpret_i64" => Some(Opcode::F64ReinterpretI64),
 
             _ => None,
         }
@@ -388,6 +442,33 @@ impl Opcode {
             Opcode::F64Div => "f64.div",
             Opcode::F64Min => "f64.min",
             Opcode::F64Max => "f64.max",
+
+            // Type conversions
+            Opcode::I32WrapI64 => "i32.wrap_i64",
+            Opcode::I64ExtendI32S => "i64.extend_i32_s",
+            Opcode::I64ExtendI32U => "i64.extend_i32_u",
+            Opcode::I32TruncF32S => "i32.trunc_f32_s",
+            Opcode::I32TruncF32U => "i32.trunc_f32_u",
+            Opcode::I32TruncF64S => "i32.trunc_f64_s",
+            Opcode::I32TruncF64U => "i32.trunc_f64_u",
+            Opcode::I64TruncF32S => "i64.trunc_f32_s",
+            Opcode::I64TruncF32U => "i64.trunc_f32_u",
+            Opcode::I64TruncF64S => "i64.trunc_f64_s",
+            Opcode::I64TruncF64U => "i64.trunc_f64_u",
+            Opcode::F32ConvertI32S => "f32.convert_i32_s",
+            Opcode::F32ConvertI32U => "f32.convert_i32_u",
+            Opcode::F32ConvertI64S => "f32.convert_i64_s",
+            Opcode::F32ConvertI64U => "f32.convert_i64_u",
+            Opcode::F32DemoteF64 => "f32.demote_f64",
+            Opcode::F64ConvertI32S => "f64.convert_i32_s",
+            Opcode::F64ConvertI32U => "f64.convert_i32_u",
+            Opcode::F64ConvertI64S => "f64.convert_i64_s",
+            Opcode::F64ConvertI64U => "f64.convert_i64_u",
+            Opcode::F64PromoteF32 => "f64.promote_f32",
+            Opcode::I32ReinterpretF32 => "i32.reinterpret_f32",
+            Opcode::I64ReinterpretF64 => "i64.reinterpret_f64",
+            Opcode::F32ReinterpretI32 => "f32.reinterpret_i32",
+            Opcode::F64ReinterpretI64 => "f64.reinterpret_i64",
         }
     }
 
@@ -420,7 +501,33 @@ impl Opcode {
             | Opcode::F64Floor
             | Opcode::F64Trunc
             | Opcode::F64Nearest
-            | Opcode::F64Sqrt => 1,
+            | Opcode::F64Sqrt
+            // Type conversions
+            | Opcode::I32WrapI64
+            | Opcode::I64ExtendI32S
+            | Opcode::I64ExtendI32U
+            | Opcode::I32TruncF32S
+            | Opcode::I32TruncF32U
+            | Opcode::I32TruncF64S
+            | Opcode::I32TruncF64U
+            | Opcode::I64TruncF32S
+            | Opcode::I64TruncF32U
+            | Opcode::I64TruncF64S
+            | Opcode::I64TruncF64U
+            | Opcode::F32ConvertI32S
+            | Opcode::F32ConvertI32U
+            | Opcode::F32ConvertI64S
+            | Opcode::F32ConvertI64U
+            | Opcode::F32DemoteF64
+            | Opcode::F64ConvertI32S
+            | Opcode::F64ConvertI32U
+            | Opcode::F64ConvertI64S
+            | Opcode::F64ConvertI64U
+            | Opcode::F64PromoteF32
+            | Opcode::I32ReinterpretF32
+            | Opcode::I64ReinterpretF64
+            | Opcode::F32ReinterpretI32
+            | Opcode::F64ReinterpretI64 => 1,
 
             // LocalSet/LocalTee/RegSet/RegTee consume one value
             Opcode::LocalSet | Opcode::LocalTee | Opcode::RegSet | Opcode::RegTee => 1,
@@ -447,7 +554,13 @@ impl Opcode {
             | Opcode::I32Xor
             | Opcode::I32Shl
             | Opcode::I32ShrS
-            | Opcode::I32ShrU => Some(ValueType::I32),
+            | Opcode::I32ShrU
+            | Opcode::I32WrapI64
+            | Opcode::I32TruncF32S
+            | Opcode::I32TruncF32U
+            | Opcode::I32TruncF64S
+            | Opcode::I32TruncF64U
+            | Opcode::I32ReinterpretF32 => Some(ValueType::I32),
 
             // i64 operations
             Opcode::I64Const
@@ -463,7 +576,14 @@ impl Opcode {
             | Opcode::I64Xor
             | Opcode::I64Shl
             | Opcode::I64ShrS
-            | Opcode::I64ShrU => Some(ValueType::I64),
+            | Opcode::I64ShrU
+            | Opcode::I64ExtendI32S
+            | Opcode::I64ExtendI32U
+            | Opcode::I64TruncF32S
+            | Opcode::I64TruncF32U
+            | Opcode::I64TruncF64S
+            | Opcode::I64TruncF64U
+            | Opcode::I64ReinterpretF64 => Some(ValueType::I64),
 
             // f32 operations
             Opcode::F32Const
@@ -479,7 +599,13 @@ impl Opcode {
             | Opcode::F32Mul
             | Opcode::F32Div
             | Opcode::F32Min
-            | Opcode::F32Max => Some(ValueType::F32),
+            | Opcode::F32Max
+            | Opcode::F32ConvertI32S
+            | Opcode::F32ConvertI32U
+            | Opcode::F32ConvertI64S
+            | Opcode::F32ConvertI64U
+            | Opcode::F32DemoteF64
+            | Opcode::F32ReinterpretI32 => Some(ValueType::F32),
 
             // f64 operations
             Opcode::F64Const
@@ -495,7 +621,13 @@ impl Opcode {
             | Opcode::F64Mul
             | Opcode::F64Div
             | Opcode::F64Min
-            | Opcode::F64Max => Some(ValueType::F64),
+            | Opcode::F64Max
+            | Opcode::F64ConvertI32S
+            | Opcode::F64ConvertI32U
+            | Opcode::F64ConvertI64S
+            | Opcode::F64ConvertI64U
+            | Opcode::F64PromoteF32
+            | Opcode::F64ReinterpretI64 => Some(ValueType::F64),
 
             // Comparison operations return i32 (boolean)
             Opcode::I32Eq
@@ -567,6 +699,32 @@ impl Opcode {
                 | Opcode::F64Trunc
                 | Opcode::F64Nearest
                 | Opcode::F64Sqrt
+                // Type conversions
+                | Opcode::I32WrapI64
+                | Opcode::I64ExtendI32S
+                | Opcode::I64ExtendI32U
+                | Opcode::I32TruncF32S
+                | Opcode::I32TruncF32U
+                | Opcode::I32TruncF64S
+                | Opcode::I32TruncF64U
+                | Opcode::I64TruncF32S
+                | Opcode::I64TruncF32U
+                | Opcode::I64TruncF64S
+                | Opcode::I64TruncF64U
+                | Opcode::F32ConvertI32S
+                | Opcode::F32ConvertI32U
+                | Opcode::F32ConvertI64S
+                | Opcode::F32ConvertI64U
+                | Opcode::F32DemoteF64
+                | Opcode::F64ConvertI32S
+                | Opcode::F64ConvertI32U
+                | Opcode::F64ConvertI64S
+                | Opcode::F64ConvertI64U
+                | Opcode::F64PromoteF32
+                | Opcode::I32ReinterpretF32
+                | Opcode::I64ReinterpretF64
+                | Opcode::F32ReinterpretI32
+                | Opcode::F64ReinterpretI64
         )
     }
 

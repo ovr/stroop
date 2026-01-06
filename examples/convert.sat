@@ -1,0 +1,22 @@
+;; Type conversion test
+(module
+  (import "console" "log" (func $log (param f64)))
+
+  ;; Test i32 -> i64 -> i32 round trip
+  (call $log (f64.convert_i32_s
+    (i32.wrap_i64
+      (i64.extend_i32_s (i32.const 42)))))
+
+  ;; Test f32 <-> f64
+  (call $log (f64.promote_f32 (f32.demote_f64 (f64.const 3.14159))))
+
+  ;; Test integer to float
+  (call $log (f64.convert_i32_s (i32.const -100)))
+  (call $log (f64.convert_i32_u (i32.const -1)))  ;; Should be 4294967295
+
+  ;; Test f64 to i32 truncation
+  (call $log (f64.convert_i32_s (i32.trunc_f64_s (f64.const 99.9))))
+
+  ;; Test reinterpret
+  (call $log (f64.reinterpret_i64 (i64.const 4614256656552045848)))
+)

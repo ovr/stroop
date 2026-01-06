@@ -464,6 +464,116 @@ pub enum Instruction {
         rhs: Reg8,
     },
 
+    // Type conversions: integer wrap/extend
+    I32WrapI64 {
+        dst: Reg8,
+        src: Reg8,
+    },
+    I64ExtendI32S {
+        dst: Reg8,
+        src: Reg8,
+    },
+    I64ExtendI32U {
+        dst: Reg8,
+        src: Reg8,
+    },
+
+    // Type conversions: float demote/promote
+    F32DemoteF64 {
+        dst: Reg8,
+        src: Reg8,
+    },
+    F64PromoteF32 {
+        dst: Reg8,
+        src: Reg8,
+    },
+
+    // Type conversions: float to integer (truncate)
+    I32TruncF32S {
+        dst: Reg8,
+        src: Reg8,
+    },
+    I32TruncF32U {
+        dst: Reg8,
+        src: Reg8,
+    },
+    I32TruncF64S {
+        dst: Reg8,
+        src: Reg8,
+    },
+    I32TruncF64U {
+        dst: Reg8,
+        src: Reg8,
+    },
+    I64TruncF32S {
+        dst: Reg8,
+        src: Reg8,
+    },
+    I64TruncF32U {
+        dst: Reg8,
+        src: Reg8,
+    },
+    I64TruncF64S {
+        dst: Reg8,
+        src: Reg8,
+    },
+    I64TruncF64U {
+        dst: Reg8,
+        src: Reg8,
+    },
+
+    // Type conversions: integer to float (convert)
+    F32ConvertI32S {
+        dst: Reg8,
+        src: Reg8,
+    },
+    F32ConvertI32U {
+        dst: Reg8,
+        src: Reg8,
+    },
+    F32ConvertI64S {
+        dst: Reg8,
+        src: Reg8,
+    },
+    F32ConvertI64U {
+        dst: Reg8,
+        src: Reg8,
+    },
+    F64ConvertI32S {
+        dst: Reg8,
+        src: Reg8,
+    },
+    F64ConvertI32U {
+        dst: Reg8,
+        src: Reg8,
+    },
+    F64ConvertI64S {
+        dst: Reg8,
+        src: Reg8,
+    },
+    F64ConvertI64U {
+        dst: Reg8,
+        src: Reg8,
+    },
+
+    // Type conversions: reinterpret (bitcast)
+    I32ReinterpretF32 {
+        dst: Reg8,
+        src: Reg8,
+    },
+    I64ReinterpretF64 {
+        dst: Reg8,
+        src: Reg8,
+    },
+    F32ReinterpretI32 {
+        dst: Reg8,
+        src: Reg8,
+    },
+    F64ReinterpretI64 {
+        dst: Reg8,
+        src: Reg8,
+    },
+
     // Control flow
     /// Unconditional jump to target address
     Jump {
