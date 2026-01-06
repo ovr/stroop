@@ -50,6 +50,18 @@ pub enum ConstPoolValue {
     F64(f64),
 }
 
+impl Eq for ConstPoolValue {}
+
+impl std::hash::Hash for ConstPoolValue {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        std::mem::discriminant(self).hash(state);
+        match self {
+            ConstPoolValue::I64(v) => v.hash(state),
+            ConstPoolValue::F64(v) => v.to_bits().hash(state),
+        }
+    }
+}
+
 impl ConstPoolValue {
     /// Get as i64, panics if wrong type.
     pub fn as_i64(&self) -> i64 {
