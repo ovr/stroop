@@ -113,11 +113,12 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    /// Read an identifier (letters, digits, dots, underscores).
+    /// Read an identifier (letters, digits, dots, underscores, and WAT-specific chars).
     fn read_identifier(&mut self, start: usize) -> String {
         let mut end = start;
         while let Some(ch) = self.peek_char() {
-            if ch.is_alphanumeric() || ch == '.' || ch == '_' {
+            // Include '=' for WAT immediates like offset=12, align=4
+            if ch.is_alphanumeric() || ch == '.' || ch == '_' || ch == '=' {
                 self.next_char();
                 end = self.pos;
             } else {
@@ -253,6 +254,34 @@ impl<'a> Lexer<'a> {
         Ok(TokenKind::String(value))
     }
 
+    /// Skip a block comment (;...;), handling nested comments.
+    /// Called after '(' has been consumed and ';' is peeked.
+    fn skip_block_comment(&mut self) -> Result<(), LexError> {
+        let start = self.pos;
+        self.next_char(); // consume ';'
+        let mut depth = 1;
+
+        while depth > 0 {
+            match self.next_char() {
+                Some(';') if self.peek_char() == Some(')') => {
+                    self.next_char(); // consume ')'
+                    depth -= 1;
+                }
+                Some('(') if self.peek_char() == Some(';') => {
+                    self.next_char(); // consume ';'
+                    depth += 1;
+                }
+                Some(_) => {}
+                None => {
+                    return Err(LexError::UnexpectedEof {
+                        loc: SourceLocation::new(start, self.line, self.column),
+                    });
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Get the next token.
     pub fn next_token(&mut self) -> Result<Token, LexError> {
         self.skip_whitespace();
@@ -264,7 +293,14 @@ impl<'a> Lexer<'a> {
         };
 
         let kind = match ch {
-            '(' => TokenKind::LParen,
+            '(' => {
+                // Check for block comment (;...;)
+                if self.peek_char() == Some(';') {
+                    self.skip_block_comment()?;
+                    return self.next_token();
+                }
+                TokenKind::LParen
+            }
             ')' => TokenKind::RParen,
             '"' => self.read_string(start)?,
             '-' => {
@@ -430,5 +466,46 @@ mod tests {
                 TokenKind::RParen,
             ]
         );
+    }
+
+    #[test]
+    fn test_block_comment() {
+        let mut lexer = Lexer::new("(;comment;) 42");
+        let token = lexer.next_token().unwrap();
+        assert_eq!(token.kind, TokenKind::Integer(42));
+    }
+
+    #[test]
+    fn test_block_comment_with_index() {
+        // This is how type indices appear in WAT: (type (;0;) ...)
+        let mut lexer = Lexer::new("(type (;0;) (func))");
+        let tokens: Vec<_> = std::iter::from_fn(|| {
+            let t = lexer.next_token().ok()?;
+            if matches!(t.kind, TokenKind::Eof) {
+                None
+            } else {
+                Some(t.kind)
+            }
+        })
+        .collect();
+
+        assert_eq!(
+            tokens,
+            vec![
+                TokenKind::LParen,
+                TokenKind::Ident("type".to_string()),
+                TokenKind::LParen,
+                TokenKind::Ident("func".to_string()),
+                TokenKind::RParen,
+                TokenKind::RParen,
+            ]
+        );
+    }
+
+    #[test]
+    fn test_nested_block_comment() {
+        let mut lexer = Lexer::new("(; outer (; inner ;) outer ;) 42");
+        let token = lexer.next_token().unwrap();
+        assert_eq!(token.kind, TokenKind::Integer(42));
     }
 }

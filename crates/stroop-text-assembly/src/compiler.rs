@@ -510,6 +510,8 @@ pub fn compile_module(module: &Module) -> Result<CompiledModule, crate::error::C
     }
 
     Ok(CompiledModule {
+        types: module.types.clone(),
+        functions: module.functions.clone(),
         instructions: compiler.code,
         imports: module.imports.clone(),
         constant_pool: compiler.pool_index_map.keys().copied().collect(),

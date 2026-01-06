@@ -3,7 +3,7 @@ use crate::error::{ParseError, SourceLocation};
 use crate::lexer::{Lexer, Span, Token, TokenKind};
 use crate::opcode::Opcode;
 use std::collections::HashMap;
-use stroop_bytecode::{FuncType, Import, ValueType};
+use stroop_bytecode::{FuncType, Function, Import, ValueType};
 
 /// Recursive descent parser for S-expression syntax.
 pub struct Parser<'a> {
@@ -452,24 +452,45 @@ impl<'a> ModuleParser<'a> {
 
         let mut module = Module::new(start_span);
 
-        // Parse imports and body
+        // Parse types, imports, and body
         while matches!(self.current.kind, TokenKind::LParen) {
-            // Peek at next token to see if it's import or expression
+            // Peek at next token to see if it's type, import, or expression
             let checkpoint_span = self.current.span;
             self.advance()?; // consume (
 
             match &self.current.kind {
+                TokenKind::Ident(s) if s == "type" => {
+                    self.advance()?; // consume "type"
+                    let func_type = self.parse_type_decl()?;
+                    module.types.push(func_type);
+                }
                 TokenKind::Ident(s) if s == "import" => {
                     self.advance()?; // consume "import"
-                    let import = self.parse_import(checkpoint_span)?;
+                    if let Some(import) = self.parse_import(checkpoint_span, &module.types)? {
+                        // Register function name if present
+                        if let Some(ref alias) = import.alias {
+                            let idx = module.imports.len() as u32;
+                            self.func_names.insert(alias.clone(), idx);
+                        }
 
-                    // Register function name if present
-                    if let Some(ref alias) = import.alias {
-                        let idx = module.imports.len() as u32;
-                        self.func_names.insert(alias.clone(), idx);
+                        module.imports.push(import);
                     }
-
-                    module.imports.push(import);
+                }
+                TokenKind::Ident(s) if s == "func" => {
+                    self.advance()?; // consume "func"
+                    let func = self.parse_func_def(checkpoint_span, &module.types)?;
+                    module.functions.push(func);
+                }
+                TokenKind::Ident(s)
+                    if s == "memory"
+                        || s == "table"
+                        || s == "global"
+                        || s == "export"
+                        || s == "elem"
+                        || s == "data" =>
+                {
+                    // Skip these sections for now
+                    self.skip_to_matching_rparen()?;
                 }
                 _ => {
                     // It's an expression - parse it
@@ -485,22 +506,36 @@ impl<'a> ModuleParser<'a> {
         Ok(module)
     }
 
-    /// Parse import after "import" keyword has been consumed.
-    fn parse_import(&mut self, start_span: Span) -> Result<Import, ParseError> {
-        // (import "module" "name" (func $alias? (param ...)? (result ...)?))
-        let module_name = self.expect_string()?;
-        let func_name = self.expect_string()?;
-
-        // Parse (func ...)
+    /// Parse type declaration after "type" keyword has been consumed.
+    /// Parses: (func (param ...)? (result ...)?)
+    fn parse_type_decl(&mut self) -> Result<FuncType, ParseError> {
+        // Expect (func ...)
         self.expect_lparen()?;
         self.expect_ident("func")?;
 
-        // Optional $alias
-        let alias = if let TokenKind::Ident(s) = &self.current.kind {
+        let func_type = self.parse_func_type()?;
+
+        self.expect_rparen()?; // close (func ...)
+        self.expect_rparen()?; // close (type ...)
+
+        Ok(func_type)
+    }
+
+    /// Parse function definition after "func" keyword has been consumed.
+    /// Parses header (type, params, locals) and skips body.
+    fn parse_func_def(
+        &mut self,
+        start_span: Span,
+        types: &[FuncType],
+    ) -> Result<Function, ParseError> {
+        // (func $name? (type N)? (param ...)* (result ...)* (local ...)* <body...>)
+
+        // Optional $name
+        let name = if let TokenKind::Ident(s) = &self.current.kind {
             if s.starts_with('$') {
-                let alias = s.clone();
+                let name = s.clone();
                 self.advance()?;
-                Some(alias)
+                Some(name)
             } else {
                 None
             }
@@ -508,19 +543,267 @@ impl<'a> ModuleParser<'a> {
             None
         };
 
-        // Parse function type (params and results)
-        let func_type = self.parse_func_type()?;
+        // Parse type reference or inline signature
+        let mut func_type = FuncType::default();
+        let mut has_type_ref = false;
+        let mut locals = Vec::new();
 
-        self.expect_rparen()?; // close (func ...)
-        let end_token = self.expect_rparen()?; // close (import ...)
+        // Parse function header clauses
+        while matches!(self.current.kind, TokenKind::LParen) {
+            let clause_start = self.current.span;
+            self.advance()?; // consume (
 
-        Ok(Import {
-            module: module_name,
-            name: func_name,
-            alias,
+            match &self.current.kind {
+                TokenKind::Ident(s) if s == "type" => {
+                    self.advance()?; // consume "type"
+                    let type_idx = self.parse_index("type")? as usize;
+                    func_type =
+                        types
+                            .get(type_idx)
+                            .cloned()
+                            .ok_or_else(|| ParseError::InvalidOperand {
+                                message: format!("type index {} out of range", type_idx),
+                                loc: SourceLocation::new(clause_start.start, 0, 0),
+                            })?;
+                    has_type_ref = true;
+                    self.expect_rparen()?;
+                }
+                TokenKind::Ident(s) if s == "param" => {
+                    self.advance()?; // consume "param"
+                    // Skip optional param name
+                    if let TokenKind::Ident(s) = &self.current.kind {
+                        if s.starts_with('$') {
+                            self.advance()?;
+                        }
+                    }
+                    // Only parse params if we don't have a type reference
+                    if !has_type_ref {
+                        while let Some(vt) = self.try_parse_value_type() {
+                            func_type.params.push(vt);
+                        }
+                    } else {
+                        // Skip the redundant param types
+                        while self.try_parse_value_type().is_some() {}
+                    }
+                    self.expect_rparen()?;
+                }
+                TokenKind::Ident(s) if s == "result" => {
+                    self.advance()?; // consume "result"
+                    // Only parse results if we don't have a type reference
+                    if !has_type_ref {
+                        while let Some(vt) = self.try_parse_value_type() {
+                            func_type.results.push(vt);
+                        }
+                    } else {
+                        // Skip the redundant result types
+                        while self.try_parse_value_type().is_some() {}
+                    }
+                    self.expect_rparen()?;
+                }
+                TokenKind::Ident(s) if s == "local" => {
+                    self.advance()?; // consume "local"
+                    // Skip optional local name
+                    if let TokenKind::Ident(s) = &self.current.kind {
+                        if s.starts_with('$') {
+                            self.advance()?;
+                        }
+                    }
+                    while let Some(vt) = self.try_parse_value_type() {
+                        locals.push(vt);
+                    }
+                    self.expect_rparen()?;
+                }
+                _ => {
+                    // This is the start of the function body - skip the rest
+                    // We already consumed (, so we're inside an instruction
+                    self.skip_to_matching_rparen()?;
+                    break;
+                }
+            }
+        }
+
+        // Skip remaining body (instructions not wrapped in parens, like in folded format)
+        // or any remaining content until the closing )
+        self.skip_to_matching_rparen()?;
+
+        Ok(Function {
+            name,
             func_type,
-            span: Span::new(start_span.start, end_token.span.end),
+            locals,
+            span: start_span,
         })
+    }
+
+    /// Parse import after "import" keyword has been consumed.
+    /// Returns None for non-func imports (memory, table, global) which are skipped.
+    fn parse_import(
+        &mut self,
+        start_span: Span,
+        types: &[FuncType],
+    ) -> Result<Option<Import>, ParseError> {
+        // (import "module" "name" (func|memory|table|global ...))
+        let module_name = self.expect_string()?;
+        let func_name = self.expect_string()?;
+
+        // Parse import descriptor
+        self.expect_lparen()?;
+
+        // Check what kind of import this is
+        let kind = match &self.current.kind {
+            TokenKind::Ident(s) => s.clone(),
+            _ => {
+                return Err(ParseError::UnexpectedToken {
+                    expected: "func, memory, table, or global".to_string(),
+                    found: format!("{}", self.current.kind),
+                    loc: self.loc(),
+                });
+            }
+        };
+        self.advance()?; // consume kind
+
+        match kind.as_str() {
+            "func" => {
+                // Optional $alias
+                let alias = if let TokenKind::Ident(s) = &self.current.kind {
+                    if s.starts_with('$') {
+                        let alias = s.clone();
+                        self.advance()?;
+                        Some(alias)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
+
+                // Parse function type: either (type N) or inline (param ...)? (result ...)?
+                let func_type = self.parse_func_type_or_ref(types)?;
+
+                self.expect_rparen()?; // close (func ...)
+                let end_token = self.expect_rparen()?; // close (import ...)
+
+                Ok(Some(Import {
+                    module: module_name,
+                    name: func_name,
+                    alias,
+                    func_type,
+                    span: Span::new(start_span.start, end_token.span.end),
+                }))
+            }
+            "memory" | "table" | "global" => {
+                // Skip these imports for now - just consume until closing parens
+                self.skip_to_matching_rparen()?;
+                self.expect_rparen()?; // close (import ...)
+                Ok(None)
+            }
+            _ => Err(ParseError::UnexpectedToken {
+                expected: "func, memory, table, or global".to_string(),
+                found: kind,
+                loc: self.loc(),
+            }),
+        }
+    }
+
+    /// Skip tokens until we find the matching closing paren.
+    fn skip_to_matching_rparen(&mut self) -> Result<(), ParseError> {
+        let mut depth = 1;
+        while depth > 0 {
+            match &self.current.kind {
+                TokenKind::LParen => {
+                    depth += 1;
+                    self.advance()?;
+                }
+                TokenKind::RParen => {
+                    depth -= 1;
+                    if depth > 0 {
+                        self.advance()?;
+                    }
+                }
+                TokenKind::Eof => {
+                    return Err(ParseError::UnexpectedEof {
+                        expected: ")".to_string(),
+                        loc: self.loc(),
+                    });
+                }
+                _ => {
+                    self.advance()?;
+                }
+            }
+        }
+        self.advance()?; // consume final )
+        Ok(())
+    }
+
+    /// Parse function type: either (type N) reference or inline (param ...)? (result ...)?
+    fn parse_func_type_or_ref(&mut self, types: &[FuncType]) -> Result<FuncType, ParseError> {
+        // Check if it's (type N)
+        if matches!(self.current.kind, TokenKind::LParen) {
+            // Peek ahead to check for "type"
+            let checkpoint = self.current.span;
+            self.advance()?; // consume (
+
+            if let TokenKind::Ident(s) = &self.current.kind {
+                if s == "type" {
+                    self.advance()?; // consume "type"
+                    let type_idx = self.parse_index("type")? as usize;
+                    self.expect_rparen()?; // close (type N)
+
+                    return types.get(type_idx).cloned().ok_or_else(|| {
+                        ParseError::InvalidOperand {
+                            message: format!(
+                                "type index {} out of range (have {} types)",
+                                type_idx,
+                                types.len()
+                            ),
+                            loc: SourceLocation::new(checkpoint.start, 0, 0),
+                        }
+                    });
+                }
+            }
+
+            // Not (type N), it must be (param ...) or (result ...)
+            // We already consumed (, so parse from here
+            return self.parse_func_type_after_lparen();
+        }
+
+        // No ( found, return empty type
+        Ok(FuncType::default())
+    }
+
+    /// Parse function type after ( has already been consumed.
+    fn parse_func_type_after_lparen(&mut self) -> Result<FuncType, ParseError> {
+        let mut params = Vec::new();
+        let mut results = Vec::new();
+
+        // We already consumed one (, check what's inside
+        loop {
+            match &self.current.kind {
+                TokenKind::Ident(s) if s == "param" => {
+                    self.advance()?; // consume "param"
+                    while let Some(vt) = self.try_parse_value_type() {
+                        params.push(vt);
+                    }
+                    self.expect_rparen()?;
+                }
+                TokenKind::Ident(s) if s == "result" => {
+                    self.advance()?; // consume "result"
+                    while let Some(vt) = self.try_parse_value_type() {
+                        results.push(vt);
+                    }
+                    self.expect_rparen()?;
+                }
+                _ => break,
+            }
+
+            // Check for more ( for additional param/result clauses
+            if matches!(self.current.kind, TokenKind::LParen) {
+                self.advance()?;
+            } else {
+                break;
+            }
+        }
+
+        Ok(FuncType { params, results })
     }
 
     /// Parse function type (param and result clauses).
@@ -1253,5 +1536,101 @@ mod tests {
             }
             _ => panic!("expected binary op with reg.get"),
         }
+    }
+
+    fn parse_module(input: &str) -> Result<Module, ParseError> {
+        ModuleParser::new(input)?.parse_module()
+    }
+
+    #[test]
+    fn test_parse_type_declaration() {
+        let module = parse_module(
+            r#"
+            (module
+                (type (func (param i32 i32) (result i32)))
+                (type (func (param i32)))
+                (type (func))
+            )
+        "#,
+        )
+        .unwrap();
+
+        assert_eq!(module.types.len(), 3);
+
+        // First type: (param i32 i32) (result i32)
+        assert_eq!(module.types[0].params.len(), 2);
+        assert_eq!(module.types[0].params[0], ValueType::I32);
+        assert_eq!(module.types[0].params[1], ValueType::I32);
+        assert_eq!(module.types[0].results.len(), 1);
+        assert_eq!(module.types[0].results[0], ValueType::I32);
+
+        // Second type: (param i32)
+        assert_eq!(module.types[1].params.len(), 1);
+        assert_eq!(module.types[1].params[0], ValueType::I32);
+        assert_eq!(module.types[1].results.len(), 0);
+
+        // Third type: empty
+        assert_eq!(module.types[2].params.len(), 0);
+        assert_eq!(module.types[2].results.len(), 0);
+    }
+
+    #[test]
+    fn test_parse_type_with_block_comment_index() {
+        // WAT files often have (;N;) index annotations
+        let module = parse_module(
+            r#"
+            (module
+                (type (;0;) (func (param i32) (result i32)))
+                (type (;1;) (func (param i64) (result i64)))
+            )
+        "#,
+        )
+        .unwrap();
+
+        assert_eq!(module.types.len(), 2);
+        assert_eq!(module.types[0].params[0], ValueType::I32);
+        assert_eq!(module.types[1].params[0], ValueType::I64);
+    }
+
+    #[test]
+    fn test_parse_import_with_type_ref() {
+        let module = parse_module(
+            r#"
+            (module
+                (type (func (param i32 i32 i32) (result i32)))
+                (import "env" "add" (func $add (type 0)))
+            )
+        "#,
+        )
+        .unwrap();
+
+        assert_eq!(module.types.len(), 1);
+        assert_eq!(module.imports.len(), 1);
+
+        // Import should have the type from type 0
+        let import = &module.imports[0];
+        assert_eq!(import.module, "env");
+        assert_eq!(import.name, "add");
+        assert_eq!(import.alias, Some("$add".to_string()));
+        assert_eq!(import.func_type.params.len(), 3);
+        assert_eq!(import.func_type.results.len(), 1);
+    }
+
+    #[test]
+    fn test_parse_import_with_inline_type() {
+        // Should still support inline param/result
+        let module = parse_module(
+            r#"
+            (module
+                (import "env" "log" (func $log (param i32)))
+            )
+        "#,
+        )
+        .unwrap();
+
+        assert_eq!(module.imports.len(), 1);
+        let import = &module.imports[0];
+        assert_eq!(import.func_type.params.len(), 1);
+        assert_eq!(import.func_type.params[0], ValueType::I32);
     }
 }

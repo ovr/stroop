@@ -6,6 +6,8 @@ use stroop_vm::{BytecodeVm, RuntimeError, Value};
 /// Helper to run a sequence of instructions and get the result from register 0.
 fn run_instructions(instructions: Vec<Instruction>) -> Result<Value, RuntimeError> {
     let module = CompiledModule {
+        types: vec![],
+        functions: vec![],
         instructions,
         constant_pool: vec![],
         imports: vec![],
@@ -21,6 +23,8 @@ fn run_with_pool(
     constant_pool: Vec<ConstPoolValue>,
 ) -> Result<Value, RuntimeError> {
     let module = CompiledModule {
+        types: vec![],
+        functions: vec![],
         instructions,
         constant_pool,
         imports: vec![],

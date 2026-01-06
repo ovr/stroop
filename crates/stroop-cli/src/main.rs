@@ -85,6 +85,49 @@ fn dump_bytecode(filename: &str) {
 }
 
 fn print_compiled_module(compiled: &CompiledModule) {
+    // Show types if non-empty
+    if !compiled.types.is_empty() {
+        println!("; {} types", compiled.types.len());
+        for (i, t) in compiled.types.iter().enumerate() {
+            println!("{:4}: {}", i, t);
+        }
+        println!();
+    }
+
+    // Show imports if non-empty
+    if !compiled.imports.is_empty() {
+        println!("; {} imports", compiled.imports.len());
+        for (i, import) in compiled.imports.iter().enumerate() {
+            println!(
+                "{:4}: {}::{} {}",
+                i, import.module, import.name, import.func_type
+            );
+        }
+        println!();
+    }
+
+    // Show functions if non-empty
+    if !compiled.functions.is_empty() {
+        println!("; {} functions", compiled.functions.len());
+        for (i, func) in compiled.functions.iter().enumerate() {
+            let name = func.name.as_deref().unwrap_or("<anon>");
+            let locals_str = if func.locals.is_empty() {
+                String::new()
+            } else {
+                format!(
+                    " [locals: {}]",
+                    func.locals
+                        .iter()
+                        .map(|v| format!("{}", v))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )
+            };
+            println!("{:4}: {}{} {}", i, name, locals_str, func.func_type);
+        }
+        println!();
+    }
+
     // Show constant pool if non-empty
     if !compiled.constant_pool.is_empty() {
         println!("; constant pool ({} entries)", compiled.constant_pool.len());
