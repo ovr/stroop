@@ -77,7 +77,10 @@ fn dump_bytecode(filename: &str) {
         process::exit(1);
     });
 
-    let compiled = compile_module(&module);
+    let compiled = compile_module(&module).unwrap_or_else(|e| {
+        eprintln!("Compile error: {}", e);
+        process::exit(1);
+    });
     print_compiled_module(&compiled);
 }
 
@@ -108,7 +111,10 @@ fn run_file(filename: &str, bench: bool, dump: bool) {
         process::exit(1);
     });
 
-    let compiled = compile_module(&module);
+    let compiled = compile_module(&module).unwrap_or_else(|e| {
+        eprintln!("Compile error: {}", e);
+        process::exit(1);
+    });
 
     if dump {
         print_compiled_module(&compiled);

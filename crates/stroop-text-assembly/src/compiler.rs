@@ -279,18 +279,19 @@ impl Compiler {
                 self.label_stack[label_idx].target = end_pos;
 
                 // Patch pending Jump/JumpIf instructions that target this label
-                self.pending_patches.retain(|(instr_idx, target_label_idx)| {
-                    if *target_label_idx == label_idx {
-                        match &mut self.code[*instr_idx] {
-                            Instruction::Jump { target } => *target = end_pos,
-                            Instruction::JumpIf { target, .. } => *target = end_pos,
-                            _ => {}
+                self.pending_patches
+                    .retain(|(instr_idx, target_label_idx)| {
+                        if *target_label_idx == label_idx {
+                            match &mut self.code[*instr_idx] {
+                                Instruction::Jump { target } => *target = end_pos,
+                                Instruction::JumpIf { target, .. } => *target = end_pos,
+                                _ => {}
+                            }
+                            false // remove from pending
+                        } else {
+                            true // keep in pending
                         }
-                        false // remove from pending
-                    } else {
-                        true // keep in pending
-                    }
-                });
+                    });
 
                 self.label_stack.pop();
             }
@@ -474,7 +475,7 @@ impl Compiler {
 }
 
 /// Compile a module AST to register-based bytecode.
-pub fn compile_module(module: &Module) -> CompiledModule {
+pub fn compile_module(module: &Module) -> Result<CompiledModule, crate::error::CompileError> {
     // Count locals used in the module
     let num_locals = count_locals(module);
 
@@ -502,16 +503,17 @@ pub fn compile_module(module: &Module) -> CompiledModule {
 
     compiler.emit(Instruction::Halt);
 
-    assert!(
-        compiler.pool_index_map.len() <= ConstPoolId::MAX as usize,
-        "constant pool overflow (>65535 constants)"
-    );
+    if compiler.pool_index_map.len() > ConstPoolId::MAX as usize {
+        return Err(crate::error::CompileError::ConstantPoolOverflow {
+            count: compiler.pool_index_map.len(),
+        });
+    }
 
-    CompiledModule {
+    Ok(CompiledModule {
         instructions: compiler.code,
         imports: module.imports.clone(),
         constant_pool: compiler.pool_index_map.keys().copied().collect(),
-    }
+    })
 }
 
 /// Count the maximum local index used in a module.
