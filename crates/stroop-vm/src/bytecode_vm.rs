@@ -650,6 +650,148 @@ impl BytecodeVm {
                     pc += 1;
                 }
 
+                // Type conversions: integer wrap/extend
+                Instruction::I32WrapI64 { dst, src } => {
+                    self.regs[dst] = Value::I32(self.regs[src].as_i64() as i32);
+                    pc += 1;
+                }
+                Instruction::I64ExtendI32S { dst, src } => {
+                    self.regs[dst] = Value::I64(self.regs[src].as_i32() as i64);
+                    pc += 1;
+                }
+                Instruction::I64ExtendI32U { dst, src } => {
+                    self.regs[dst] = Value::I64((self.regs[src].as_i32() as u32) as i64);
+                    pc += 1;
+                }
+
+                // Type conversions: float demote/promote
+                Instruction::F32DemoteF64 { dst, src } => {
+                    self.regs[dst] = Value::F32(self.regs[src].as_f64() as f32);
+                    pc += 1;
+                }
+                Instruction::F64PromoteF32 { dst, src } => {
+                    self.regs[dst] = Value::F64(self.regs[src].as_f32() as f64);
+                    pc += 1;
+                }
+
+                // Type conversions: float to integer (trap on NaN/overflow)
+                Instruction::I32TruncF32S { dst, src } => {
+                    let v = self.regs[src].as_f32();
+                    if v.is_nan() || v < (i32::MIN as f32) || v >= (i32::MAX as f32) + 1.0 {
+                        return Err(RuntimeError::IntegerOverflow);
+                    }
+                    self.regs[dst] = Value::I32(v.trunc() as i32);
+                    pc += 1;
+                }
+                Instruction::I32TruncF32U { dst, src } => {
+                    let v = self.regs[src].as_f32();
+                    if v.is_nan() || v < 0.0 || v >= (u32::MAX as f32) + 1.0 {
+                        return Err(RuntimeError::IntegerOverflow);
+                    }
+                    self.regs[dst] = Value::I32(v.trunc() as u32 as i32);
+                    pc += 1;
+                }
+                Instruction::I32TruncF64S { dst, src } => {
+                    let v = self.regs[src].as_f64();
+                    if v.is_nan() || v < (i32::MIN as f64) || v >= (i32::MAX as f64) + 1.0 {
+                        return Err(RuntimeError::IntegerOverflow);
+                    }
+                    self.regs[dst] = Value::I32(v.trunc() as i32);
+                    pc += 1;
+                }
+                Instruction::I32TruncF64U { dst, src } => {
+                    let v = self.regs[src].as_f64();
+                    if v.is_nan() || v < 0.0 || v >= (u32::MAX as f64) + 1.0 {
+                        return Err(RuntimeError::IntegerOverflow);
+                    }
+                    self.regs[dst] = Value::I32(v.trunc() as u32 as i32);
+                    pc += 1;
+                }
+                Instruction::I64TruncF32S { dst, src } => {
+                    let v = self.regs[src].as_f32();
+                    if v.is_nan() || v < (i64::MIN as f32) || v >= (i64::MAX as f32) {
+                        return Err(RuntimeError::IntegerOverflow);
+                    }
+                    self.regs[dst] = Value::I64(v.trunc() as i64);
+                    pc += 1;
+                }
+                Instruction::I64TruncF32U { dst, src } => {
+                    let v = self.regs[src].as_f32();
+                    if v.is_nan() || v < 0.0 || v >= (u64::MAX as f32) {
+                        return Err(RuntimeError::IntegerOverflow);
+                    }
+                    self.regs[dst] = Value::I64(v.trunc() as u64 as i64);
+                    pc += 1;
+                }
+                Instruction::I64TruncF64S { dst, src } => {
+                    let v = self.regs[src].as_f64();
+                    if v.is_nan() || v < (i64::MIN as f64) || v >= (i64::MAX as f64) + 1.0 {
+                        return Err(RuntimeError::IntegerOverflow);
+                    }
+                    self.regs[dst] = Value::I64(v.trunc() as i64);
+                    pc += 1;
+                }
+                Instruction::I64TruncF64U { dst, src } => {
+                    let v = self.regs[src].as_f64();
+                    if v.is_nan() || v < 0.0 || v >= (u64::MAX as f64) + 1.0 {
+                        return Err(RuntimeError::IntegerOverflow);
+                    }
+                    self.regs[dst] = Value::I64(v.trunc() as u64 as i64);
+                    pc += 1;
+                }
+
+                // Type conversions: integer to float
+                Instruction::F32ConvertI32S { dst, src } => {
+                    self.regs[dst] = Value::F32(self.regs[src].as_i32() as f32);
+                    pc += 1;
+                }
+                Instruction::F32ConvertI32U { dst, src } => {
+                    self.regs[dst] = Value::F32((self.regs[src].as_i32() as u32) as f32);
+                    pc += 1;
+                }
+                Instruction::F32ConvertI64S { dst, src } => {
+                    self.regs[dst] = Value::F32(self.regs[src].as_i64() as f32);
+                    pc += 1;
+                }
+                Instruction::F32ConvertI64U { dst, src } => {
+                    self.regs[dst] = Value::F32((self.regs[src].as_i64() as u64) as f32);
+                    pc += 1;
+                }
+                Instruction::F64ConvertI32S { dst, src } => {
+                    self.regs[dst] = Value::F64(self.regs[src].as_i32() as f64);
+                    pc += 1;
+                }
+                Instruction::F64ConvertI32U { dst, src } => {
+                    self.regs[dst] = Value::F64((self.regs[src].as_i32() as u32) as f64);
+                    pc += 1;
+                }
+                Instruction::F64ConvertI64S { dst, src } => {
+                    self.regs[dst] = Value::F64(self.regs[src].as_i64() as f64);
+                    pc += 1;
+                }
+                Instruction::F64ConvertI64U { dst, src } => {
+                    self.regs[dst] = Value::F64((self.regs[src].as_i64() as u64) as f64);
+                    pc += 1;
+                }
+
+                // Type conversions: reinterpret (bitcast)
+                Instruction::I32ReinterpretF32 { dst, src } => {
+                    self.regs[dst] = Value::I32(self.regs[src].as_f32().to_bits() as i32);
+                    pc += 1;
+                }
+                Instruction::I64ReinterpretF64 { dst, src } => {
+                    self.regs[dst] = Value::I64(self.regs[src].as_f64().to_bits() as i64);
+                    pc += 1;
+                }
+                Instruction::F32ReinterpretI32 { dst, src } => {
+                    self.regs[dst] = Value::F32(f32::from_bits(self.regs[src].as_i32() as u32));
+                    pc += 1;
+                }
+                Instruction::F64ReinterpretI64 { dst, src } => {
+                    self.regs[dst] = Value::F64(f64::from_bits(self.regs[src].as_i64() as u64));
+                    pc += 1;
+                }
+
                 // Control flow
                 Instruction::Jump { target } => {
                     pc = target as usize;
