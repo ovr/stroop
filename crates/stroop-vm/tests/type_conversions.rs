@@ -1,14 +1,23 @@
 //! Tests for type conversion instructions.
 
-use stroop_bytecode::{CompiledModule, ConstPoolValue, Instruction};
+use stroop_bytecode::{CompiledModule, ConstPoolValue, Instruction, ValueType};
 use stroop_vm::{BytecodeVm, RuntimeError, Value};
 
 /// Helper to run a sequence of instructions and get the result from register 0.
 fn run_instructions(instructions: Vec<Instruction>) -> Result<Value, RuntimeError> {
+    run_instructions_with_type(instructions, ValueType::I32)
+}
+
+/// Helper to run instructions with a specified return type.
+fn run_instructions_with_type(
+    instructions: Vec<Instruction>,
+    result_type: ValueType,
+) -> Result<Value, RuntimeError> {
     let module = CompiledModule {
         instructions,
         constant_pool: vec![],
         imports: vec![],
+        result_type: Some(result_type),
     };
     let mut vm = BytecodeVm::new();
     vm.execute(&module)
@@ -20,10 +29,20 @@ fn run_with_pool(
     instructions: Vec<Instruction>,
     constant_pool: Vec<ConstPoolValue>,
 ) -> Result<Value, RuntimeError> {
+    run_with_pool_and_type(instructions, constant_pool, ValueType::I32)
+}
+
+/// Helper to run instructions with a constant pool and return type.
+fn run_with_pool_and_type(
+    instructions: Vec<Instruction>,
+    constant_pool: Vec<ConstPoolValue>,
+    result_type: ValueType,
+) -> Result<Value, RuntimeError> {
     let module = CompiledModule {
         instructions,
         constant_pool,
         imports: vec![],
+        result_type: Some(result_type),
     };
     let mut vm = BytecodeVm::new();
     vm.execute(&module)
@@ -66,11 +85,14 @@ fn test_i32_wrap_i64_negative() -> Result<(), RuntimeError> {
 #[test]
 fn test_i64_extend_i32_s() -> Result<(), RuntimeError> {
     // Sign-extend i32 to i64
-    let result = run_instructions(vec![
-        Instruction::LoadConstI32 { dst: 1, value: -42 },
-        Instruction::I64ExtendI32S { dst: 0, src: 1 },
-        Instruction::Halt,
-    ])?;
+    let result = run_instructions_with_type(
+        vec![
+            Instruction::LoadConstI32 { dst: 1, value: -42 },
+            Instruction::I64ExtendI32S { dst: 0, src: 1 },
+            Instruction::Halt,
+        ],
+        ValueType::I64,
+    )?;
     assert_eq!(result.as_i64(), -42i64);
     Ok(())
 }
@@ -78,22 +100,28 @@ fn test_i64_extend_i32_s() -> Result<(), RuntimeError> {
 #[test]
 fn test_i64_extend_i32_u() -> Result<(), RuntimeError> {
     // Zero-extend i32 to i64
-    let result = run_instructions(vec![
-        Instruction::LoadConstI32 { dst: 1, value: -1 }, // 0xFFFFFFFF as u32
-        Instruction::I64ExtendI32U { dst: 0, src: 1 },
-        Instruction::Halt,
-    ])?;
+    let result = run_instructions_with_type(
+        vec![
+            Instruction::LoadConstI32 { dst: 1, value: -1 }, // 0xFFFFFFFF as u32
+            Instruction::I64ExtendI32U { dst: 0, src: 1 },
+            Instruction::Halt,
+        ],
+        ValueType::I64,
+    )?;
     assert_eq!(result.as_i64(), 0xFFFF_FFFF_i64); // 4294967295
     Ok(())
 }
 
 #[test]
 fn test_i64_extend_i32_s_positive() -> Result<(), RuntimeError> {
-    let result = run_instructions(vec![
-        Instruction::LoadConstI32 { dst: 1, value: 42 },
-        Instruction::I64ExtendI32S { dst: 0, src: 1 },
-        Instruction::Halt,
-    ])?;
+    let result = run_instructions_with_type(
+        vec![
+            Instruction::LoadConstI32 { dst: 1, value: 42 },
+            Instruction::I64ExtendI32S { dst: 0, src: 1 },
+            Instruction::Halt,
+        ],
+        ValueType::I64,
+    )?;
     assert_eq!(result.as_i64(), 42i64);
     Ok(())
 }
@@ -104,13 +132,14 @@ fn test_i64_extend_i32_s_positive() -> Result<(), RuntimeError> {
 
 #[test]
 fn test_f32_demote_f64() -> Result<(), RuntimeError> {
-    let result = run_with_pool(
+    let result = run_with_pool_and_type(
         vec![
             Instruction::LoadConstF64 { dst: 1, index: 0 },
             Instruction::F32DemoteF64 { dst: 0, src: 1 },
             Instruction::Halt,
         ],
         vec![ConstPoolValue::F64(3.141592653589793)],
+        ValueType::F32,
     )?;
     // f32 has less precision
     assert!((result.as_f32() - 3.1415927).abs() < 1e-6);
@@ -119,27 +148,31 @@ fn test_f32_demote_f64() -> Result<(), RuntimeError> {
 
 #[test]
 fn test_f64_promote_f32() -> Result<(), RuntimeError> {
-    let result = run_instructions(vec![
-        Instruction::LoadConstF32 {
-            dst: 1,
-            value: 3.14f32,
-        },
-        Instruction::F64PromoteF32 { dst: 0, src: 1 },
-        Instruction::Halt,
-    ])?;
+    let result = run_instructions_with_type(
+        vec![
+            Instruction::LoadConstF32 {
+                dst: 1,
+                value: 3.14f32,
+            },
+            Instruction::F64PromoteF32 { dst: 0, src: 1 },
+            Instruction::Halt,
+        ],
+        ValueType::F64,
+    )?;
     assert!((result.as_f64() - 3.14).abs() < 1e-6);
     Ok(())
 }
 
 #[test]
 fn test_f32_demote_f64_infinity() -> Result<(), RuntimeError> {
-    let result = run_with_pool(
+    let result = run_with_pool_and_type(
         vec![
             Instruction::LoadConstF64 { dst: 1, index: 0 },
             Instruction::F32DemoteF64 { dst: 0, src: 1 },
             Instruction::Halt,
         ],
         vec![ConstPoolValue::F64(f64::INFINITY)],
+        ValueType::F32,
     )?;
     assert!(result.as_f32().is_infinite());
     Ok(())
@@ -246,13 +279,14 @@ fn test_i32_trunc_f64_s_overflow_traps() {
 
 #[test]
 fn test_i64_trunc_f64_s() -> Result<(), RuntimeError> {
-    let result = run_with_pool(
+    let result = run_with_pool_and_type(
         vec![
             Instruction::LoadConstF64 { dst: 1, index: 0 },
             Instruction::I64TruncF64S { dst: 0, src: 1 },
             Instruction::Halt,
         ],
         vec![ConstPoolValue::F64(-999.99)],
+        ValueType::I64,
     )?;
     assert_eq!(result.as_i64(), -999);
     Ok(())
@@ -260,13 +294,14 @@ fn test_i64_trunc_f64_s() -> Result<(), RuntimeError> {
 
 #[test]
 fn test_i64_trunc_f64_u() -> Result<(), RuntimeError> {
-    let result = run_with_pool(
+    let result = run_with_pool_and_type(
         vec![
             Instruction::LoadConstF64 { dst: 1, index: 0 },
             Instruction::I64TruncF64U { dst: 0, src: 1 },
             Instruction::Halt,
         ],
         vec![ConstPoolValue::F64(1e18)],
+        ValueType::I64,
     )?;
     assert_eq!(result.as_i64() as u64, 1_000_000_000_000_000_000u64);
     Ok(())
@@ -278,22 +313,28 @@ fn test_i64_trunc_f64_u() -> Result<(), RuntimeError> {
 
 #[test]
 fn test_f32_convert_i32_s() -> Result<(), RuntimeError> {
-    let result = run_instructions(vec![
-        Instruction::LoadConstI32 { dst: 1, value: -42 },
-        Instruction::F32ConvertI32S { dst: 0, src: 1 },
-        Instruction::Halt,
-    ])?;
+    let result = run_instructions_with_type(
+        vec![
+            Instruction::LoadConstI32 { dst: 1, value: -42 },
+            Instruction::F32ConvertI32S { dst: 0, src: 1 },
+            Instruction::Halt,
+        ],
+        ValueType::F32,
+    )?;
     assert_eq!(result.as_f32(), -42.0f32);
     Ok(())
 }
 
 #[test]
 fn test_f32_convert_i32_u() -> Result<(), RuntimeError> {
-    let result = run_instructions(vec![
-        Instruction::LoadConstI32 { dst: 1, value: -1 }, // 0xFFFFFFFF as u32
-        Instruction::F32ConvertI32U { dst: 0, src: 1 },
-        Instruction::Halt,
-    ])?;
+    let result = run_instructions_with_type(
+        vec![
+            Instruction::LoadConstI32 { dst: 1, value: -1 }, // 0xFFFFFFFF as u32
+            Instruction::F32ConvertI32U { dst: 0, src: 1 },
+            Instruction::Halt,
+        ],
+        ValueType::F32,
+    )?;
     // -1 as i32 = 4294967295 as u32
     assert!((result.as_f32() - 4294967295.0f32).abs() < 1000.0);
     Ok(())
@@ -301,38 +342,45 @@ fn test_f32_convert_i32_u() -> Result<(), RuntimeError> {
 
 #[test]
 fn test_f64_convert_i32_s() -> Result<(), RuntimeError> {
-    let result = run_instructions(vec![
-        Instruction::LoadConstI32 {
-            dst: 1,
-            value: -100,
-        },
-        Instruction::F64ConvertI32S { dst: 0, src: 1 },
-        Instruction::Halt,
-    ])?;
+    let result = run_instructions_with_type(
+        vec![
+            Instruction::LoadConstI32 {
+                dst: 1,
+                value: -100,
+            },
+            Instruction::F64ConvertI32S { dst: 0, src: 1 },
+            Instruction::Halt,
+        ],
+        ValueType::F64,
+    )?;
     assert_eq!(result.as_f64(), -100.0);
     Ok(())
 }
 
 #[test]
 fn test_f64_convert_i32_u() -> Result<(), RuntimeError> {
-    let result = run_instructions(vec![
-        Instruction::LoadConstI32 { dst: 1, value: -1 }, // 4294967295 as u32
-        Instruction::F64ConvertI32U { dst: 0, src: 1 },
-        Instruction::Halt,
-    ])?;
+    let result = run_instructions_with_type(
+        vec![
+            Instruction::LoadConstI32 { dst: 1, value: -1 }, // 4294967295 as u32
+            Instruction::F64ConvertI32U { dst: 0, src: 1 },
+            Instruction::Halt,
+        ],
+        ValueType::F64,
+    )?;
     assert_eq!(result.as_f64(), 4294967295.0);
     Ok(())
 }
 
 #[test]
 fn test_f64_convert_i64_s() -> Result<(), RuntimeError> {
-    let result = run_with_pool(
+    let result = run_with_pool_and_type(
         vec![
             Instruction::LoadConstI64 { dst: 1, index: 0 },
             Instruction::F64ConvertI64S { dst: 0, src: 1 },
             Instruction::Halt,
         ],
         vec![ConstPoolValue::I64(-1_000_000_000_000i64)],
+        ValueType::F64,
     )?;
     assert_eq!(result.as_f64(), -1_000_000_000_000.0);
     Ok(())
@@ -340,13 +388,14 @@ fn test_f64_convert_i64_s() -> Result<(), RuntimeError> {
 
 #[test]
 fn test_f64_convert_i64_u() -> Result<(), RuntimeError> {
-    let result = run_with_pool(
+    let result = run_with_pool_and_type(
         vec![
             Instruction::LoadConstI64 { dst: 1, index: 0 },
             Instruction::F64ConvertI64U { dst: 0, src: 1 },
             Instruction::Halt,
         ],
         vec![ConstPoolValue::I64(-1i64)], // u64::MAX
+        ValueType::F64,
     )?;
     // -1 as i64 = 18446744073709551615 as u64
     assert!(result.as_f64() > 1.8e19);
@@ -374,27 +423,31 @@ fn test_i32_reinterpret_f32() -> Result<(), RuntimeError> {
 
 #[test]
 fn test_f32_reinterpret_i32() -> Result<(), RuntimeError> {
-    let result = run_instructions(vec![
-        Instruction::LoadConstI32 {
-            dst: 1,
-            value: 0x3f800000u32 as i32,
-        },
-        Instruction::F32ReinterpretI32 { dst: 0, src: 1 },
-        Instruction::Halt,
-    ])?;
+    let result = run_instructions_with_type(
+        vec![
+            Instruction::LoadConstI32 {
+                dst: 1,
+                value: 0x3f800000u32 as i32,
+            },
+            Instruction::F32ReinterpretI32 { dst: 0, src: 1 },
+            Instruction::Halt,
+        ],
+        ValueType::F32,
+    )?;
     assert_eq!(result.as_f32(), 1.0f32);
     Ok(())
 }
 
 #[test]
 fn test_i64_reinterpret_f64() -> Result<(), RuntimeError> {
-    let result = run_with_pool(
+    let result = run_with_pool_and_type(
         vec![
             Instruction::LoadConstF64 { dst: 1, index: 0 },
             Instruction::I64ReinterpretF64 { dst: 0, src: 1 },
             Instruction::Halt,
         ],
         vec![ConstPoolValue::F64(1.0)],
+        ValueType::I64,
     )?;
     // 1.0f64 bit pattern = 0x3ff0000000000000
     assert_eq!(result.as_i64(), 0x3ff0000000000000u64 as i64);
@@ -403,7 +456,7 @@ fn test_i64_reinterpret_f64() -> Result<(), RuntimeError> {
 
 #[test]
 fn test_f64_reinterpret_i64() -> Result<(), RuntimeError> {
-    let result = run_with_pool(
+    let result = run_with_pool_and_type(
         vec![
             Instruction::LoadConstI64 { dst: 1, index: 0 },
             Instruction::F64ReinterpretI64 { dst: 0, src: 1 },
@@ -411,6 +464,7 @@ fn test_f64_reinterpret_i64() -> Result<(), RuntimeError> {
         ],
         // pi bit pattern
         vec![ConstPoolValue::I64(0x400921fb54442d18u64 as i64)],
+        ValueType::F64,
     )?;
     assert!((result.as_f64() - std::f64::consts::PI).abs() < 1e-15);
     Ok(())
@@ -419,15 +473,18 @@ fn test_f64_reinterpret_i64() -> Result<(), RuntimeError> {
 #[test]
 fn test_reinterpret_roundtrip_f32() -> Result<(), RuntimeError> {
     // f32 -> i32 -> f32 should preserve bit pattern
-    let result = run_instructions(vec![
-        Instruction::LoadConstF32 {
-            dst: 1,
-            value: -0.0f32,
-        },
-        Instruction::I32ReinterpretF32 { dst: 2, src: 1 },
-        Instruction::F32ReinterpretI32 { dst: 0, src: 2 },
-        Instruction::Halt,
-    ])?;
+    let result = run_instructions_with_type(
+        vec![
+            Instruction::LoadConstF32 {
+                dst: 1,
+                value: -0.0f32,
+            },
+            Instruction::I32ReinterpretF32 { dst: 2, src: 1 },
+            Instruction::F32ReinterpretI32 { dst: 0, src: 2 },
+            Instruction::Halt,
+        ],
+        ValueType::F32,
+    )?;
     // -0.0 has a different bit pattern than 0.0
     assert!(result.as_f32().is_sign_negative());
     assert_eq!(result.as_f32(), 0.0);
@@ -436,7 +493,7 @@ fn test_reinterpret_roundtrip_f32() -> Result<(), RuntimeError> {
 
 #[test]
 fn test_reinterpret_roundtrip_f64() -> Result<(), RuntimeError> {
-    let result = run_with_pool(
+    let result = run_with_pool_and_type(
         vec![
             Instruction::LoadConstF64 { dst: 1, index: 0 },
             Instruction::I64ReinterpretF64 { dst: 2, src: 1 },
@@ -444,6 +501,7 @@ fn test_reinterpret_roundtrip_f64() -> Result<(), RuntimeError> {
             Instruction::Halt,
         ],
         vec![ConstPoolValue::F64(f64::NEG_INFINITY)],
+        ValueType::F64,
     )?;
     assert_eq!(result.as_f64(), f64::NEG_INFINITY);
     Ok(())

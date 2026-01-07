@@ -40,4 +40,6 @@ pub struct CompiledModule {
     pub imports: Vec<Import>,
     /// Constant pool for i64/f64 values.
     pub constant_pool: Vec<ConstPoolValue>,
+    /// Result type of the main function (for return value conversion).
+    pub result_type: Option<crate::types::ValueType>,
 }

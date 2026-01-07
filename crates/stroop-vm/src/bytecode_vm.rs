@@ -1,9 +1,9 @@
 //! Register-based bytecode virtual machine.
 
 use crate::error::RuntimeError;
-use crate::value::Value;
+use crate::value::{RegValue, Value};
 use std::ops::{Index, IndexMut};
-use stroop_bytecode::{CompiledModule, FuncType, Instruction};
+use stroop_bytecode::{CompiledModule, FuncType, Instruction, ValueType};
 
 /// Host function that can be called from the VM.
 pub type HostFn = Box<dyn Fn(&[Value]) -> Result<Option<Value>, RuntimeError>>;
@@ -52,8 +52,8 @@ impl<T: Copy> IndexMut<u8> for Registers<T> {
 
 /// Register-based bytecode virtual machine.
 pub struct BytecodeVm {
-    /// Fixed-size registers (256 registers).
-    regs: Registers<Value>,
+    /// Fixed-size registers (256 registers) - untagged for performance.
+    regs: Registers<RegValue>,
     /// Imported functions.
     imports: Vec<ImportedFunc>,
 }
@@ -68,7 +68,7 @@ impl BytecodeVm {
     /// Create a new register-based VM.
     pub fn new() -> Self {
         Self {
-            regs: Registers::new(Value::I32(0)),
+            regs: Registers::new(RegValue::default()),
             imports: Vec::new(),
         }
     }
@@ -100,21 +100,21 @@ impl BytecodeVm {
             match code[pc] {
                 // Constants
                 Instruction::LoadConstI32 { dst, value } => {
-                    self.regs[dst] = Value::I32(value);
+                    self.regs[dst] = RegValue::from_i32(value);
                     pc += 1;
                 }
                 Instruction::LoadConstI64 { dst, index } => {
                     let value = module.constant_pool[index as usize].as_i64();
-                    self.regs[dst] = Value::I64(value);
+                    self.regs[dst] = RegValue::from_i64(value);
                     pc += 1;
                 }
                 Instruction::LoadConstF32 { dst, value } => {
-                    self.regs[dst] = Value::F32(value);
+                    self.regs[dst] = RegValue::from_f32(value);
                     pc += 1;
                 }
                 Instruction::LoadConstF64 { dst, index } => {
                     let value = module.constant_pool[index as usize].as_f64();
-                    self.regs[dst] = Value::F64(value);
+                    self.regs[dst] = RegValue::from_f64(value);
                     pc += 1;
                 }
 
@@ -128,19 +128,19 @@ impl BytecodeVm {
                 Instruction::I32Add { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_i32();
                     let b = self.regs[rhs].as_i32();
-                    self.regs[dst] = Value::I32(a.wrapping_add(b));
+                    self.regs[dst] = RegValue::from_i32(a.wrapping_add(b));
                     pc += 1;
                 }
                 Instruction::I32Sub { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_i32();
                     let b = self.regs[rhs].as_i32();
-                    self.regs[dst] = Value::I32(a.wrapping_sub(b));
+                    self.regs[dst] = RegValue::from_i32(a.wrapping_sub(b));
                     pc += 1;
                 }
                 Instruction::I32Mul { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_i32();
                     let b = self.regs[rhs].as_i32();
-                    self.regs[dst] = Value::I32(a.wrapping_mul(b));
+                    self.regs[dst] = RegValue::from_i32(a.wrapping_mul(b));
                     pc += 1;
                 }
                 Instruction::I32DivS { dst, lhs, rhs } => {
@@ -152,7 +152,7 @@ impl BytecodeVm {
                     if a == i32::MIN && b == -1 {
                         return Err(RuntimeError::IntegerOverflow);
                     }
-                    self.regs[dst] = Value::I32(a / b);
+                    self.regs[dst] = RegValue::from_i32(a / b);
                     pc += 1;
                 }
                 Instruction::I32DivU { dst, lhs, rhs } => {
@@ -161,7 +161,7 @@ impl BytecodeVm {
                     if b == 0 {
                         return Err(RuntimeError::DivisionByZero);
                     }
-                    self.regs[dst] = Value::I32((a / b) as i32);
+                    self.regs[dst] = RegValue::from_i32((a / b) as i32);
                     pc += 1;
                 }
                 Instruction::I32RemS { dst, lhs, rhs } => {
@@ -170,7 +170,7 @@ impl BytecodeVm {
                     if b == 0 {
                         return Err(RuntimeError::DivisionByZero);
                     }
-                    self.regs[dst] = Value::I32(a % b);
+                    self.regs[dst] = RegValue::from_i32(a % b);
                     pc += 1;
                 }
                 Instruction::I32RemU { dst, lhs, rhs } => {
@@ -179,43 +179,43 @@ impl BytecodeVm {
                     if b == 0 {
                         return Err(RuntimeError::DivisionByZero);
                     }
-                    self.regs[dst] = Value::I32((a % b) as i32);
+                    self.regs[dst] = RegValue::from_i32((a % b) as i32);
                     pc += 1;
                 }
                 Instruction::I32And { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_i32();
                     let b = self.regs[rhs].as_i32();
-                    self.regs[dst] = Value::I32(a & b);
+                    self.regs[dst] = RegValue::from_i32(a & b);
                     pc += 1;
                 }
                 Instruction::I32Or { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_i32();
                     let b = self.regs[rhs].as_i32();
-                    self.regs[dst] = Value::I32(a | b);
+                    self.regs[dst] = RegValue::from_i32(a | b);
                     pc += 1;
                 }
                 Instruction::I32Xor { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_i32();
                     let b = self.regs[rhs].as_i32();
-                    self.regs[dst] = Value::I32(a ^ b);
+                    self.regs[dst] = RegValue::from_i32(a ^ b);
                     pc += 1;
                 }
                 Instruction::I32Shl { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_i32();
                     let b = self.regs[rhs].as_i32();
-                    self.regs[dst] = Value::I32(a << (b & 31));
+                    self.regs[dst] = RegValue::from_i32(a << (b & 31));
                     pc += 1;
                 }
                 Instruction::I32ShrS { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_i32();
                     let b = self.regs[rhs].as_i32();
-                    self.regs[dst] = Value::I32(a >> (b & 31));
+                    self.regs[dst] = RegValue::from_i32(a >> (b & 31));
                     pc += 1;
                 }
                 Instruction::I32ShrU { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_i32() as u32;
                     let b = self.regs[rhs].as_i32();
-                    self.regs[dst] = Value::I32((a >> (b & 31)) as i32);
+                    self.regs[dst] = RegValue::from_i32((a >> (b & 31)) as i32);
                     pc += 1;
                 }
 
@@ -223,61 +223,61 @@ impl BytecodeVm {
                 Instruction::I32Eq { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_i32();
                     let b = self.regs[rhs].as_i32();
-                    self.regs[dst] = Value::I32(if a == b { 1 } else { 0 });
+                    self.regs[dst] = RegValue::from_i32(if a == b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::I32Ne { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_i32();
                     let b = self.regs[rhs].as_i32();
-                    self.regs[dst] = Value::I32(if a != b { 1 } else { 0 });
+                    self.regs[dst] = RegValue::from_i32(if a != b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::I32LtS { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_i32();
                     let b = self.regs[rhs].as_i32();
-                    self.regs[dst] = Value::I32(if a < b { 1 } else { 0 });
+                    self.regs[dst] = RegValue::from_i32(if a < b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::I32LtU { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_i32() as u32;
                     let b = self.regs[rhs].as_i32() as u32;
-                    self.regs[dst] = Value::I32(if a < b { 1 } else { 0 });
+                    self.regs[dst] = RegValue::from_i32(if a < b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::I32GtS { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_i32();
                     let b = self.regs[rhs].as_i32();
-                    self.regs[dst] = Value::I32(if a > b { 1 } else { 0 });
+                    self.regs[dst] = RegValue::from_i32(if a > b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::I32GtU { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_i32() as u32;
                     let b = self.regs[rhs].as_i32() as u32;
-                    self.regs[dst] = Value::I32(if a > b { 1 } else { 0 });
+                    self.regs[dst] = RegValue::from_i32(if a > b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::I32LeS { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_i32();
                     let b = self.regs[rhs].as_i32();
-                    self.regs[dst] = Value::I32(if a <= b { 1 } else { 0 });
+                    self.regs[dst] = RegValue::from_i32(if a <= b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::I32LeU { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_i32() as u32;
                     let b = self.regs[rhs].as_i32() as u32;
-                    self.regs[dst] = Value::I32(if a <= b { 1 } else { 0 });
+                    self.regs[dst] = RegValue::from_i32(if a <= b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::I32GeS { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_i32();
                     let b = self.regs[rhs].as_i32();
-                    self.regs[dst] = Value::I32(if a >= b { 1 } else { 0 });
+                    self.regs[dst] = RegValue::from_i32(if a >= b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::I32GeU { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_i32() as u32;
                     let b = self.regs[rhs].as_i32() as u32;
-                    self.regs[dst] = Value::I32(if a >= b { 1 } else { 0 });
+                    self.regs[dst] = RegValue::from_i32(if a >= b { 1 } else { 0 });
                     pc += 1;
                 }
 
@@ -285,19 +285,19 @@ impl BytecodeVm {
                 Instruction::I64Add { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_i64();
                     let b = self.regs[rhs].as_i64();
-                    self.regs[dst] = Value::I64(a.wrapping_add(b));
+                    self.regs[dst] = RegValue::from_i64(a.wrapping_add(b));
                     pc += 1;
                 }
                 Instruction::I64Sub { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_i64();
                     let b = self.regs[rhs].as_i64();
-                    self.regs[dst] = Value::I64(a.wrapping_sub(b));
+                    self.regs[dst] = RegValue::from_i64(a.wrapping_sub(b));
                     pc += 1;
                 }
                 Instruction::I64Mul { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_i64();
                     let b = self.regs[rhs].as_i64();
-                    self.regs[dst] = Value::I64(a.wrapping_mul(b));
+                    self.regs[dst] = RegValue::from_i64(a.wrapping_mul(b));
                     pc += 1;
                 }
                 Instruction::I64DivS { dst, lhs, rhs } => {
@@ -309,7 +309,7 @@ impl BytecodeVm {
                     if a == i64::MIN && b == -1 {
                         return Err(RuntimeError::IntegerOverflow);
                     }
-                    self.regs[dst] = Value::I64(a / b);
+                    self.regs[dst] = RegValue::from_i64(a / b);
                     pc += 1;
                 }
                 Instruction::I64DivU { dst, lhs, rhs } => {
@@ -318,7 +318,7 @@ impl BytecodeVm {
                     if b == 0 {
                         return Err(RuntimeError::DivisionByZero);
                     }
-                    self.regs[dst] = Value::I64((a / b) as i64);
+                    self.regs[dst] = RegValue::from_i64((a / b) as i64);
                     pc += 1;
                 }
                 Instruction::I64RemS { dst, lhs, rhs } => {
@@ -327,7 +327,7 @@ impl BytecodeVm {
                     if b == 0 {
                         return Err(RuntimeError::DivisionByZero);
                     }
-                    self.regs[dst] = Value::I64(a % b);
+                    self.regs[dst] = RegValue::from_i64(a % b);
                     pc += 1;
                 }
                 Instruction::I64RemU { dst, lhs, rhs } => {
@@ -336,43 +336,43 @@ impl BytecodeVm {
                     if b == 0 {
                         return Err(RuntimeError::DivisionByZero);
                     }
-                    self.regs[dst] = Value::I64((a % b) as i64);
+                    self.regs[dst] = RegValue::from_i64((a % b) as i64);
                     pc += 1;
                 }
                 Instruction::I64And { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_i64();
                     let b = self.regs[rhs].as_i64();
-                    self.regs[dst] = Value::I64(a & b);
+                    self.regs[dst] = RegValue::from_i64(a & b);
                     pc += 1;
                 }
                 Instruction::I64Or { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_i64();
                     let b = self.regs[rhs].as_i64();
-                    self.regs[dst] = Value::I64(a | b);
+                    self.regs[dst] = RegValue::from_i64(a | b);
                     pc += 1;
                 }
                 Instruction::I64Xor { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_i64();
                     let b = self.regs[rhs].as_i64();
-                    self.regs[dst] = Value::I64(a ^ b);
+                    self.regs[dst] = RegValue::from_i64(a ^ b);
                     pc += 1;
                 }
                 Instruction::I64Shl { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_i64();
                     let b = self.regs[rhs].as_i64();
-                    self.regs[dst] = Value::I64(a << (b & 63));
+                    self.regs[dst] = RegValue::from_i64(a << (b & 63));
                     pc += 1;
                 }
                 Instruction::I64ShrS { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_i64();
                     let b = self.regs[rhs].as_i64();
-                    self.regs[dst] = Value::I64(a >> (b & 63));
+                    self.regs[dst] = RegValue::from_i64(a >> (b & 63));
                     pc += 1;
                 }
                 Instruction::I64ShrU { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_i64() as u64;
                     let b = self.regs[rhs].as_i64();
-                    self.regs[dst] = Value::I64((a >> (b & 63)) as i64);
+                    self.regs[dst] = RegValue::from_i64((a >> (b & 63)) as i64);
                     pc += 1;
                 }
 
@@ -380,61 +380,61 @@ impl BytecodeVm {
                 Instruction::I64Eq { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_i64();
                     let b = self.regs[rhs].as_i64();
-                    self.regs[dst] = Value::I32(if a == b { 1 } else { 0 });
+                    self.regs[dst] = RegValue::from_i32(if a == b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::I64Ne { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_i64();
                     let b = self.regs[rhs].as_i64();
-                    self.regs[dst] = Value::I32(if a != b { 1 } else { 0 });
+                    self.regs[dst] = RegValue::from_i32(if a != b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::I64LtS { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_i64();
                     let b = self.regs[rhs].as_i64();
-                    self.regs[dst] = Value::I32(if a < b { 1 } else { 0 });
+                    self.regs[dst] = RegValue::from_i32(if a < b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::I64LtU { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_i64() as u64;
                     let b = self.regs[rhs].as_i64() as u64;
-                    self.regs[dst] = Value::I32(if a < b { 1 } else { 0 });
+                    self.regs[dst] = RegValue::from_i32(if a < b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::I64GtS { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_i64();
                     let b = self.regs[rhs].as_i64();
-                    self.regs[dst] = Value::I32(if a > b { 1 } else { 0 });
+                    self.regs[dst] = RegValue::from_i32(if a > b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::I64GtU { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_i64() as u64;
                     let b = self.regs[rhs].as_i64() as u64;
-                    self.regs[dst] = Value::I32(if a > b { 1 } else { 0 });
+                    self.regs[dst] = RegValue::from_i32(if a > b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::I64LeS { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_i64();
                     let b = self.regs[rhs].as_i64();
-                    self.regs[dst] = Value::I32(if a <= b { 1 } else { 0 });
+                    self.regs[dst] = RegValue::from_i32(if a <= b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::I64LeU { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_i64() as u64;
                     let b = self.regs[rhs].as_i64() as u64;
-                    self.regs[dst] = Value::I32(if a <= b { 1 } else { 0 });
+                    self.regs[dst] = RegValue::from_i32(if a <= b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::I64GeS { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_i64();
                     let b = self.regs[rhs].as_i64();
-                    self.regs[dst] = Value::I32(if a >= b { 1 } else { 0 });
+                    self.regs[dst] = RegValue::from_i32(if a >= b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::I64GeU { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_i64() as u64;
                     let b = self.regs[rhs].as_i64() as u64;
-                    self.regs[dst] = Value::I32(if a >= b { 1 } else { 0 });
+                    self.regs[dst] = RegValue::from_i32(if a >= b { 1 } else { 0 });
                     pc += 1;
                 }
 
@@ -442,67 +442,67 @@ impl BytecodeVm {
                 Instruction::F32Add { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_f32();
                     let b = self.regs[rhs].as_f32();
-                    self.regs[dst] = Value::F32(a + b);
+                    self.regs[dst] = RegValue::from_f32(a + b);
                     pc += 1;
                 }
                 Instruction::F32Sub { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_f32();
                     let b = self.regs[rhs].as_f32();
-                    self.regs[dst] = Value::F32(a - b);
+                    self.regs[dst] = RegValue::from_f32(a - b);
                     pc += 1;
                 }
                 Instruction::F32Mul { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_f32();
                     let b = self.regs[rhs].as_f32();
-                    self.regs[dst] = Value::F32(a * b);
+                    self.regs[dst] = RegValue::from_f32(a * b);
                     pc += 1;
                 }
                 Instruction::F32Div { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_f32();
                     let b = self.regs[rhs].as_f32();
-                    self.regs[dst] = Value::F32(a / b);
+                    self.regs[dst] = RegValue::from_f32(a / b);
                     pc += 1;
                 }
                 Instruction::F32Min { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_f32();
                     let b = self.regs[rhs].as_f32();
-                    self.regs[dst] = Value::F32(a.min(b));
+                    self.regs[dst] = RegValue::from_f32(a.min(b));
                     pc += 1;
                 }
                 Instruction::F32Max { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_f32();
                     let b = self.regs[rhs].as_f32();
-                    self.regs[dst] = Value::F32(a.max(b));
+                    self.regs[dst] = RegValue::from_f32(a.max(b));
                     pc += 1;
                 }
 
                 // f32 unary
                 Instruction::F32Abs { dst, src } => {
-                    self.regs[dst] = Value::F32(self.regs[src].as_f32().abs());
+                    self.regs[dst] = RegValue::from_f32(self.regs[src].as_f32().abs());
                     pc += 1;
                 }
                 Instruction::F32Neg { dst, src } => {
-                    self.regs[dst] = Value::F32(-self.regs[src].as_f32());
+                    self.regs[dst] = RegValue::from_f32(-self.regs[src].as_f32());
                     pc += 1;
                 }
                 Instruction::F32Ceil { dst, src } => {
-                    self.regs[dst] = Value::F32(self.regs[src].as_f32().ceil());
+                    self.regs[dst] = RegValue::from_f32(self.regs[src].as_f32().ceil());
                     pc += 1;
                 }
                 Instruction::F32Floor { dst, src } => {
-                    self.regs[dst] = Value::F32(self.regs[src].as_f32().floor());
+                    self.regs[dst] = RegValue::from_f32(self.regs[src].as_f32().floor());
                     pc += 1;
                 }
                 Instruction::F32Trunc { dst, src } => {
-                    self.regs[dst] = Value::F32(self.regs[src].as_f32().trunc());
+                    self.regs[dst] = RegValue::from_f32(self.regs[src].as_f32().trunc());
                     pc += 1;
                 }
                 Instruction::F32Nearest { dst, src } => {
-                    self.regs[dst] = Value::F32(self.regs[src].as_f32().round());
+                    self.regs[dst] = RegValue::from_f32(self.regs[src].as_f32().round());
                     pc += 1;
                 }
                 Instruction::F32Sqrt { dst, src } => {
-                    self.regs[dst] = Value::F32(self.regs[src].as_f32().sqrt());
+                    self.regs[dst] = RegValue::from_f32(self.regs[src].as_f32().sqrt());
                     pc += 1;
                 }
 
@@ -510,37 +510,37 @@ impl BytecodeVm {
                 Instruction::F32Eq { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_f32();
                     let b = self.regs[rhs].as_f32();
-                    self.regs[dst] = Value::I32(if a == b { 1 } else { 0 });
+                    self.regs[dst] = RegValue::from_i32(if a == b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::F32Ne { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_f32();
                     let b = self.regs[rhs].as_f32();
-                    self.regs[dst] = Value::I32(if a != b { 1 } else { 0 });
+                    self.regs[dst] = RegValue::from_i32(if a != b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::F32Lt { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_f32();
                     let b = self.regs[rhs].as_f32();
-                    self.regs[dst] = Value::I32(if a < b { 1 } else { 0 });
+                    self.regs[dst] = RegValue::from_i32(if a < b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::F32Gt { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_f32();
                     let b = self.regs[rhs].as_f32();
-                    self.regs[dst] = Value::I32(if a > b { 1 } else { 0 });
+                    self.regs[dst] = RegValue::from_i32(if a > b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::F32Le { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_f32();
                     let b = self.regs[rhs].as_f32();
-                    self.regs[dst] = Value::I32(if a <= b { 1 } else { 0 });
+                    self.regs[dst] = RegValue::from_i32(if a <= b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::F32Ge { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_f32();
                     let b = self.regs[rhs].as_f32();
-                    self.regs[dst] = Value::I32(if a >= b { 1 } else { 0 });
+                    self.regs[dst] = RegValue::from_i32(if a >= b { 1 } else { 0 });
                     pc += 1;
                 }
 
@@ -548,67 +548,67 @@ impl BytecodeVm {
                 Instruction::F64Add { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_f64();
                     let b = self.regs[rhs].as_f64();
-                    self.regs[dst] = Value::F64(a + b);
+                    self.regs[dst] = RegValue::from_f64(a + b);
                     pc += 1;
                 }
                 Instruction::F64Sub { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_f64();
                     let b = self.regs[rhs].as_f64();
-                    self.regs[dst] = Value::F64(a - b);
+                    self.regs[dst] = RegValue::from_f64(a - b);
                     pc += 1;
                 }
                 Instruction::F64Mul { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_f64();
                     let b = self.regs[rhs].as_f64();
-                    self.regs[dst] = Value::F64(a * b);
+                    self.regs[dst] = RegValue::from_f64(a * b);
                     pc += 1;
                 }
                 Instruction::F64Div { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_f64();
                     let b = self.regs[rhs].as_f64();
-                    self.regs[dst] = Value::F64(a / b);
+                    self.regs[dst] = RegValue::from_f64(a / b);
                     pc += 1;
                 }
                 Instruction::F64Min { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_f64();
                     let b = self.regs[rhs].as_f64();
-                    self.regs[dst] = Value::F64(a.min(b));
+                    self.regs[dst] = RegValue::from_f64(a.min(b));
                     pc += 1;
                 }
                 Instruction::F64Max { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_f64();
                     let b = self.regs[rhs].as_f64();
-                    self.regs[dst] = Value::F64(a.max(b));
+                    self.regs[dst] = RegValue::from_f64(a.max(b));
                     pc += 1;
                 }
 
                 // f64 unary
                 Instruction::F64Abs { dst, src } => {
-                    self.regs[dst] = Value::F64(self.regs[src].as_f64().abs());
+                    self.regs[dst] = RegValue::from_f64(self.regs[src].as_f64().abs());
                     pc += 1;
                 }
                 Instruction::F64Neg { dst, src } => {
-                    self.regs[dst] = Value::F64(-self.regs[src].as_f64());
+                    self.regs[dst] = RegValue::from_f64(-self.regs[src].as_f64());
                     pc += 1;
                 }
                 Instruction::F64Ceil { dst, src } => {
-                    self.regs[dst] = Value::F64(self.regs[src].as_f64().ceil());
+                    self.regs[dst] = RegValue::from_f64(self.regs[src].as_f64().ceil());
                     pc += 1;
                 }
                 Instruction::F64Floor { dst, src } => {
-                    self.regs[dst] = Value::F64(self.regs[src].as_f64().floor());
+                    self.regs[dst] = RegValue::from_f64(self.regs[src].as_f64().floor());
                     pc += 1;
                 }
                 Instruction::F64Trunc { dst, src } => {
-                    self.regs[dst] = Value::F64(self.regs[src].as_f64().trunc());
+                    self.regs[dst] = RegValue::from_f64(self.regs[src].as_f64().trunc());
                     pc += 1;
                 }
                 Instruction::F64Nearest { dst, src } => {
-                    self.regs[dst] = Value::F64(self.regs[src].as_f64().round());
+                    self.regs[dst] = RegValue::from_f64(self.regs[src].as_f64().round());
                     pc += 1;
                 }
                 Instruction::F64Sqrt { dst, src } => {
-                    self.regs[dst] = Value::F64(self.regs[src].as_f64().sqrt());
+                    self.regs[dst] = RegValue::from_f64(self.regs[src].as_f64().sqrt());
                     pc += 1;
                 }
 
@@ -616,61 +616,61 @@ impl BytecodeVm {
                 Instruction::F64Eq { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_f64();
                     let b = self.regs[rhs].as_f64();
-                    self.regs[dst] = Value::I32(if a == b { 1 } else { 0 });
+                    self.regs[dst] = RegValue::from_i32(if a == b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::F64Ne { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_f64();
                     let b = self.regs[rhs].as_f64();
-                    self.regs[dst] = Value::I32(if a != b { 1 } else { 0 });
+                    self.regs[dst] = RegValue::from_i32(if a != b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::F64Lt { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_f64();
                     let b = self.regs[rhs].as_f64();
-                    self.regs[dst] = Value::I32(if a < b { 1 } else { 0 });
+                    self.regs[dst] = RegValue::from_i32(if a < b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::F64Gt { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_f64();
                     let b = self.regs[rhs].as_f64();
-                    self.regs[dst] = Value::I32(if a > b { 1 } else { 0 });
+                    self.regs[dst] = RegValue::from_i32(if a > b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::F64Le { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_f64();
                     let b = self.regs[rhs].as_f64();
-                    self.regs[dst] = Value::I32(if a <= b { 1 } else { 0 });
+                    self.regs[dst] = RegValue::from_i32(if a <= b { 1 } else { 0 });
                     pc += 1;
                 }
                 Instruction::F64Ge { dst, lhs, rhs } => {
                     let a = self.regs[lhs].as_f64();
                     let b = self.regs[rhs].as_f64();
-                    self.regs[dst] = Value::I32(if a >= b { 1 } else { 0 });
+                    self.regs[dst] = RegValue::from_i32(if a >= b { 1 } else { 0 });
                     pc += 1;
                 }
 
                 // Type conversions: integer wrap/extend
                 Instruction::I32WrapI64 { dst, src } => {
-                    self.regs[dst] = Value::I32(self.regs[src].as_i64() as i32);
+                    self.regs[dst] = RegValue::from_i32(self.regs[src].as_i64() as i32);
                     pc += 1;
                 }
                 Instruction::I64ExtendI32S { dst, src } => {
-                    self.regs[dst] = Value::I64(self.regs[src].as_i32() as i64);
+                    self.regs[dst] = RegValue::from_i64(self.regs[src].as_i32() as i64);
                     pc += 1;
                 }
                 Instruction::I64ExtendI32U { dst, src } => {
-                    self.regs[dst] = Value::I64((self.regs[src].as_i32() as u32) as i64);
+                    self.regs[dst] = RegValue::from_i64((self.regs[src].as_i32() as u32) as i64);
                     pc += 1;
                 }
 
                 // Type conversions: float demote/promote
                 Instruction::F32DemoteF64 { dst, src } => {
-                    self.regs[dst] = Value::F32(self.regs[src].as_f64() as f32);
+                    self.regs[dst] = RegValue::from_f32(self.regs[src].as_f64() as f32);
                     pc += 1;
                 }
                 Instruction::F64PromoteF32 { dst, src } => {
-                    self.regs[dst] = Value::F64(self.regs[src].as_f32() as f64);
+                    self.regs[dst] = RegValue::from_f64(self.regs[src].as_f32() as f64);
                     pc += 1;
                 }
 
@@ -680,7 +680,7 @@ impl BytecodeVm {
                     if v.is_nan() || v < (i32::MIN as f32) || v >= (i32::MAX as f32) + 1.0 {
                         return Err(RuntimeError::IntegerOverflow);
                     }
-                    self.regs[dst] = Value::I32(v.trunc() as i32);
+                    self.regs[dst] = RegValue::from_i32(v.trunc() as i32);
                     pc += 1;
                 }
                 Instruction::I32TruncF32U { dst, src } => {
@@ -688,7 +688,7 @@ impl BytecodeVm {
                     if v.is_nan() || v < 0.0 || v >= (u32::MAX as f32) + 1.0 {
                         return Err(RuntimeError::IntegerOverflow);
                     }
-                    self.regs[dst] = Value::I32(v.trunc() as u32 as i32);
+                    self.regs[dst] = RegValue::from_i32(v.trunc() as u32 as i32);
                     pc += 1;
                 }
                 Instruction::I32TruncF64S { dst, src } => {
@@ -696,7 +696,7 @@ impl BytecodeVm {
                     if v.is_nan() || v < (i32::MIN as f64) || v >= (i32::MAX as f64) + 1.0 {
                         return Err(RuntimeError::IntegerOverflow);
                     }
-                    self.regs[dst] = Value::I32(v.trunc() as i32);
+                    self.regs[dst] = RegValue::from_i32(v.trunc() as i32);
                     pc += 1;
                 }
                 Instruction::I32TruncF64U { dst, src } => {
@@ -704,7 +704,7 @@ impl BytecodeVm {
                     if v.is_nan() || v < 0.0 || v >= (u32::MAX as f64) + 1.0 {
                         return Err(RuntimeError::IntegerOverflow);
                     }
-                    self.regs[dst] = Value::I32(v.trunc() as u32 as i32);
+                    self.regs[dst] = RegValue::from_i32(v.trunc() as u32 as i32);
                     pc += 1;
                 }
                 Instruction::I64TruncF32S { dst, src } => {
@@ -712,7 +712,7 @@ impl BytecodeVm {
                     if v.is_nan() || v < (i64::MIN as f32) || v >= (i64::MAX as f32) {
                         return Err(RuntimeError::IntegerOverflow);
                     }
-                    self.regs[dst] = Value::I64(v.trunc() as i64);
+                    self.regs[dst] = RegValue::from_i64(v.trunc() as i64);
                     pc += 1;
                 }
                 Instruction::I64TruncF32U { dst, src } => {
@@ -720,7 +720,7 @@ impl BytecodeVm {
                     if v.is_nan() || v < 0.0 || v >= (u64::MAX as f32) {
                         return Err(RuntimeError::IntegerOverflow);
                     }
-                    self.regs[dst] = Value::I64(v.trunc() as u64 as i64);
+                    self.regs[dst] = RegValue::from_i64(v.trunc() as u64 as i64);
                     pc += 1;
                 }
                 Instruction::I64TruncF64S { dst, src } => {
@@ -728,7 +728,7 @@ impl BytecodeVm {
                     if v.is_nan() || v < (i64::MIN as f64) || v >= (i64::MAX as f64) + 1.0 {
                         return Err(RuntimeError::IntegerOverflow);
                     }
-                    self.regs[dst] = Value::I64(v.trunc() as i64);
+                    self.regs[dst] = RegValue::from_i64(v.trunc() as i64);
                     pc += 1;
                 }
                 Instruction::I64TruncF64U { dst, src } => {
@@ -736,59 +736,61 @@ impl BytecodeVm {
                     if v.is_nan() || v < 0.0 || v >= (u64::MAX as f64) + 1.0 {
                         return Err(RuntimeError::IntegerOverflow);
                     }
-                    self.regs[dst] = Value::I64(v.trunc() as u64 as i64);
+                    self.regs[dst] = RegValue::from_i64(v.trunc() as u64 as i64);
                     pc += 1;
                 }
 
                 // Type conversions: integer to float
                 Instruction::F32ConvertI32S { dst, src } => {
-                    self.regs[dst] = Value::F32(self.regs[src].as_i32() as f32);
+                    self.regs[dst] = RegValue::from_f32(self.regs[src].as_i32() as f32);
                     pc += 1;
                 }
                 Instruction::F32ConvertI32U { dst, src } => {
-                    self.regs[dst] = Value::F32((self.regs[src].as_i32() as u32) as f32);
+                    self.regs[dst] = RegValue::from_f32((self.regs[src].as_i32() as u32) as f32);
                     pc += 1;
                 }
                 Instruction::F32ConvertI64S { dst, src } => {
-                    self.regs[dst] = Value::F32(self.regs[src].as_i64() as f32);
+                    self.regs[dst] = RegValue::from_f32(self.regs[src].as_i64() as f32);
                     pc += 1;
                 }
                 Instruction::F32ConvertI64U { dst, src } => {
-                    self.regs[dst] = Value::F32((self.regs[src].as_i64() as u64) as f32);
+                    self.regs[dst] = RegValue::from_f32((self.regs[src].as_i64() as u64) as f32);
                     pc += 1;
                 }
                 Instruction::F64ConvertI32S { dst, src } => {
-                    self.regs[dst] = Value::F64(self.regs[src].as_i32() as f64);
+                    self.regs[dst] = RegValue::from_f64(self.regs[src].as_i32() as f64);
                     pc += 1;
                 }
                 Instruction::F64ConvertI32U { dst, src } => {
-                    self.regs[dst] = Value::F64((self.regs[src].as_i32() as u32) as f64);
+                    self.regs[dst] = RegValue::from_f64((self.regs[src].as_i32() as u32) as f64);
                     pc += 1;
                 }
                 Instruction::F64ConvertI64S { dst, src } => {
-                    self.regs[dst] = Value::F64(self.regs[src].as_i64() as f64);
+                    self.regs[dst] = RegValue::from_f64(self.regs[src].as_i64() as f64);
                     pc += 1;
                 }
                 Instruction::F64ConvertI64U { dst, src } => {
-                    self.regs[dst] = Value::F64((self.regs[src].as_i64() as u64) as f64);
+                    self.regs[dst] = RegValue::from_f64((self.regs[src].as_i64() as u64) as f64);
                     pc += 1;
                 }
 
                 // Type conversions: reinterpret (bitcast)
                 Instruction::I32ReinterpretF32 { dst, src } => {
-                    self.regs[dst] = Value::I32(self.regs[src].as_f32().to_bits() as i32);
+                    self.regs[dst] = RegValue::from_i32(self.regs[src].as_f32().to_bits() as i32);
                     pc += 1;
                 }
                 Instruction::I64ReinterpretF64 { dst, src } => {
-                    self.regs[dst] = Value::I64(self.regs[src].as_f64().to_bits() as i64);
+                    self.regs[dst] = RegValue::from_i64(self.regs[src].as_f64().to_bits() as i64);
                     pc += 1;
                 }
                 Instruction::F32ReinterpretI32 { dst, src } => {
-                    self.regs[dst] = Value::F32(f32::from_bits(self.regs[src].as_i32() as u32));
+                    self.regs[dst] =
+                        RegValue::from_f32(f32::from_bits(self.regs[src].as_i32() as u32));
                     pc += 1;
                 }
                 Instruction::F64ReinterpretI64 { dst, src } => {
-                    self.regs[dst] = Value::F64(f64::from_bits(self.regs[src].as_i64() as u64));
+                    self.regs[dst] =
+                        RegValue::from_f64(f64::from_bits(self.regs[src].as_i64() as u64));
                     pc += 1;
                 }
 
@@ -844,11 +846,22 @@ impl BytecodeVm {
                             name: format!("{}.{}", import.module, import.name),
                         })?;
 
-                    let args: Vec<Value> = (0..argc).map(|i| self.regs[base + i]).collect();
+                    // Convert RegValue args to Value for host function call
+                    let args: Vec<Value> = (0..argc)
+                        .map(|i| {
+                            let ty = host_fn
+                                .func_type
+                                .params
+                                .get(i as usize)
+                                .copied()
+                                .unwrap_or(ValueType::I64);
+                            self.regs[base + i].to_value(ty)
+                        })
+                        .collect();
 
                     let result = (host_fn.func)(&args)?;
                     if let Some(v) = result {
-                        self.regs[dst] = v;
+                        self.regs[dst] = v.into();
                     }
                     pc += 1;
                 }
@@ -857,6 +870,9 @@ impl BytecodeVm {
             }
         }
 
-        Ok(Some(self.regs[0u8]))
+        // Get return type from module
+        let result_type = module.result_type.unwrap_or(ValueType::I32);
+
+        Ok(Some(self.regs[0u8].to_value(result_type)))
     }
 }

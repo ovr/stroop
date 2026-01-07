@@ -161,4 +161,5 @@ CompiledModule {
             100.0,
         ),
     ],
+    result_type: None,
 }
