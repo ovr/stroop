@@ -2,6 +2,75 @@
 
 use stroop_bytecode::ValueType;
 
+/// Untagged register value - stores raw bits without type discriminant.
+/// Used in the hot interpreter loop where types are statically known from bytecode.
+#[derive(Clone, Copy, Default)]
+#[repr(transparent)]
+pub struct RegValue(u64);
+
+impl RegValue {
+    #[inline(always)]
+    pub fn from_i32(v: i32) -> Self {
+        Self(v as u32 as u64)
+    }
+
+    #[inline(always)]
+    pub fn from_i64(v: i64) -> Self {
+        Self(v as u64)
+    }
+
+    #[inline(always)]
+    pub fn from_f32(v: f32) -> Self {
+        Self(v.to_bits() as u64)
+    }
+
+    #[inline(always)]
+    pub fn from_f64(v: f64) -> Self {
+        Self(v.to_bits())
+    }
+
+    #[inline(always)]
+    pub fn as_i32(self) -> i32 {
+        self.0 as i32
+    }
+
+    #[inline(always)]
+    pub fn as_i64(self) -> i64 {
+        self.0 as i64
+    }
+
+    #[inline(always)]
+    pub fn as_f32(self) -> f32 {
+        f32::from_bits(self.0 as u32)
+    }
+
+    #[inline(always)]
+    pub fn as_f64(self) -> f64 {
+        f64::from_bits(self.0)
+    }
+
+    /// Convert to typed Value using function return type.
+    pub fn to_value(self, ty: ValueType) -> Value {
+        match ty {
+            ValueType::I32 => Value::I32(self.as_i32()),
+            ValueType::I64 => Value::I64(self.as_i64()),
+            ValueType::F32 => Value::F32(self.as_f32()),
+            ValueType::F64 => Value::F64(self.as_f64()),
+        }
+    }
+}
+
+impl From<Value> for RegValue {
+    fn from(v: Value) -> Self {
+        match v {
+            Value::I32(x) => Self::from_i32(x),
+            Value::I64(x) => Self::from_i64(x),
+            Value::F32(x) => Self::from_f32(x),
+            Value::F64(x) => Self::from_f64(x),
+        }
+    }
+}
+
 /// A runtime value that can hold any of the supported types.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Value {

@@ -1,6 +1,5 @@
 ---
 source: crates/stroop-text-assembly/tests/fixtures.rs
-assertion_line: 26
 expression: compiled
 ---
 CompiledModule {
@@ -50,4 +49,5 @@ CompiledModule {
         },
     ],
     constant_pool: [],
+    result_type: None,
 }

@@ -509,10 +509,14 @@ pub fn compile_module(module: &Module) -> Result<CompiledModule, crate::error::C
         });
     }
 
+    // Infer result type from the last expression
+    let result_type = module.body.last().and_then(infer_expr_type);
+
     Ok(CompiledModule {
         instructions: compiler.code,
         imports: module.imports.clone(),
         constant_pool: compiler.pool_index_map.keys().copied().collect(),
+        result_type,
     })
 }
 
@@ -683,6 +687,36 @@ fn unary_op_instruction(opcode: Opcode, dst: u8, src: u8) -> Instruction {
         Opcode::F32ReinterpretI32 => Instruction::F32ReinterpretI32 { dst, src },
         Opcode::F64ReinterpretI64 => Instruction::F64ReinterpretI64 { dst, src },
         _ => panic!("Unsupported unary opcode: {:?}", opcode),
+    }
+}
+
+/// Infer the result type of an expression.
+fn infer_expr_type(expr: &Expr) -> Option<stroop_bytecode::ValueType> {
+    match expr {
+        Expr::Const { value, .. } => Some(value.value_type()),
+        Expr::BinaryOp { opcode, .. } | Expr::UnaryOp { opcode, .. } => opcode.result_type(),
+        Expr::LocalSet { value, .. } | Expr::LocalTee { value, .. } => infer_expr_type(value),
+        Expr::RegSet { value, .. } | Expr::RegTee { value, .. } => infer_expr_type(value),
+        Expr::Block { block_type, body, .. } | Expr::Loop { block_type, body, .. } => {
+            match block_type {
+                crate::ast::BlockType::Value(ty) => Some(*ty),
+                crate::ast::BlockType::Empty => body.last().and_then(infer_expr_type),
+            }
+        }
+        Expr::If {
+            block_type,
+            then_body,
+            ..
+        } => match block_type {
+            crate::ast::BlockType::Value(ty) => Some(*ty),
+            crate::ast::BlockType::Empty => then_body.last().and_then(infer_expr_type),
+        },
+        // LocalGet/RegGet types depend on what was stored - can't infer statically here
+        Expr::LocalGet { .. } | Expr::RegGet { .. } => None,
+        // Call result type depends on function signature - can't infer here
+        Expr::Call { .. } => None,
+        // Branches don't produce values
+        Expr::Br { .. } | Expr::BrIf { .. } => None,
     }
 }
 
