@@ -1,7 +1,7 @@
 //! Module types for bytecode representation.
 
 use crate::instruction::Instruction;
-use crate::types::{ConstPoolValue, FuncType};
+use crate::types::{ConstPoolValue, FuncType, ValueType};
 
 /// A span in the source code.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -31,9 +31,26 @@ pub struct Import {
     pub span: Span,
 }
 
+/// A function definition in the module.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Function {
+    /// Optional name (e.g., $main)
+    pub name: Option<String>,
+    /// Function signature
+    pub func_type: FuncType,
+    /// Local variables (excluding parameters)
+    pub locals: Vec<ValueType>,
+    /// Source span
+    pub span: Span,
+}
+
 /// A compiled module ready for execution.
 #[derive(Debug, Clone)]
 pub struct CompiledModule {
+    /// Type declarations for call_indirect validation.
+    pub types: Vec<FuncType>,
+    /// Function definitions.
+    pub functions: Vec<Function>,
     /// The bytecode instructions.
     pub instructions: Vec<Instruction>,
     /// Import declarations (for resolving calls).

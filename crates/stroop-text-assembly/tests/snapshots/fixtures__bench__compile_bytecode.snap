@@ -3,6 +3,8 @@ source: crates/stroop-text-assembly/tests/fixtures.rs
 expression: compiled
 ---
 CompiledModule {
+    types: [],
+    functions: [],
     instructions: [
         LoadConstF64 {
             dst: 5,

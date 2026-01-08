@@ -1,5 +1,5 @@
 use crate::opcode::Opcode;
-use stroop_bytecode::{Import, Span, ValueType};
+use stroop_bytecode::{FuncType, Function, Import, Span, ValueType};
 
 /// Constant value for const expressions.
 #[derive(Debug, Clone, PartialEq)]
@@ -52,6 +52,10 @@ impl Default for BlockType {
 /// A complete module with imports and code.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Module {
+    /// Type declarations (from (type ...) sections)
+    pub types: Vec<FuncType>,
+    /// Function definitions
+    pub functions: Vec<Function>,
     /// Import declarations
     pub imports: Vec<Import>,
     /// Module body expressions
@@ -64,6 +68,8 @@ impl Module {
     /// Create a new empty module.
     pub fn new(span: Span) -> Self {
         Self {
+            types: Vec::new(),
+            functions: Vec::new(),
             imports: Vec::new(),
             body: Vec::new(),
             span,

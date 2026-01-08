@@ -1,9 +1,10 @@
 ---
 source: crates/stroop-text-assembly/tests/fixtures.rs
-assertion_line: 26
 expression: compiled
 ---
 CompiledModule {
+    types: [],
+    functions: [],
     instructions: [
         LoadConstI32 {
             dst: 3,

@@ -3,5 +3,6 @@
 .claude
 
 # Review before publishing
+/benchmarks
 /research
 PROJECT.md

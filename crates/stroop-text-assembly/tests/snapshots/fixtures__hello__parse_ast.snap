@@ -1,9 +1,10 @@
 ---
 source: crates/stroop-text-assembly/tests/fixtures.rs
-assertion_line: 26
 expression: module
 ---
 Module {
+    types: [],
+    functions: [],
     imports: [
         Import {
             module: "console",
