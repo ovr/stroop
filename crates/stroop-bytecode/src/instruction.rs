@@ -594,6 +594,9 @@ pub enum Instruction {
         dst: Reg8,
     },
 
+    /// Return from execution with value from src register
+    Return { src: Reg8 },
+
     Halt,
 }
 

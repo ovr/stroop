@@ -200,6 +200,14 @@ pub enum Expr {
         /// Source span
         span: Span,
     },
+
+    /// Return from function: (return <expr>)
+    Return {
+        /// Value to return
+        value: Box<Expr>,
+        /// Source span
+        span: Span,
+    },
 }
 
 impl Expr {
@@ -220,7 +228,8 @@ impl Expr {
             | Expr::Loop { span, .. }
             | Expr::Br { span, .. }
             | Expr::BrIf { span, .. }
-            | Expr::If { span, .. } => *span,
+            | Expr::If { span, .. }
+            | Expr::Return { span, .. } => *span,
         }
     }
 
@@ -376,6 +385,14 @@ impl Expr {
             condition: Box::new(condition),
             then_body,
             else_body,
+            span,
+        }
+    }
+
+    /// Create a return expression.
+    pub fn return_expr(value: Expr, span: Span) -> Self {
+        Expr::Return {
+            value: Box::new(value),
             span,
         }
     }

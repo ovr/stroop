@@ -470,6 +470,18 @@ impl Compiler {
                     }
                 }
             }
+
+            Expr::Return { value, .. } => {
+                // Compile value expression into a register, then emit Return
+                let src_reg = if let Some(r) = self.get_simple_reg(value) {
+                    r
+                } else {
+                    let r = self.alloc_temp();
+                    self.compile_expr(value, r);
+                    r
+                };
+                self.emit(Instruction::Return { src: src_reg });
+            }
         }
     }
 }
@@ -552,6 +564,7 @@ fn count_locals_expr(expr: &Expr) -> u8 {
             m
         }
         Expr::Call { args, .. } => args.iter().map(count_locals_expr).max().unwrap_or(0),
+        Expr::Return { value, .. } => count_locals_expr(value),
         _ => 0,
     }
 }
@@ -739,6 +752,9 @@ fn collect_constants(expr: &Expr, constants: &mut IndexMap<u64, usize>) {
             for arg in args {
                 collect_constants(arg, constants);
             }
+        }
+        Expr::Return { value, .. } => {
+            collect_constants(value, constants);
         }
         _ => {}
     }
