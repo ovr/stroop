@@ -1,4 +1,4 @@
-//! stroop-text-assembly: SAT (Stroop Assembly Text) parser and compiler.
+//! stroop-assembly-text: SAT (Stroop Assembly Text) parser and compiler.
 //!
 //! This crate provides a WAT-like S-expression parser for the Stroop bytecode
 //! text format (.sat files), plus a compiler to transform AST to bytecode.
@@ -6,7 +6,7 @@
 //! # Example
 //!
 //! ```rust
-//! use stroop_text_assembly::{parse, Expr, ConstValue};
+//! use stroop_assembly_text::{parse, Expr, ConstValue};
 //!
 //! let expr = parse("(i64.add (i64.const 1) (i64.const 2))").unwrap();
 //!
@@ -22,25 +22,21 @@ pub mod ast;
 pub mod compiler;
 pub mod error;
 pub mod lexer;
-pub mod opcode;
 pub mod parser;
 
 pub use ast::{BlockType, ConstValue, Expr, Module};
 pub use compiler::compile_module;
 pub use error::{CompileError, Error, LexError, ParseError, SourceLocation};
 pub use lexer::{Token, TokenKind};
-pub use opcode::Opcode;
 pub use parser::{ModuleParser, Parser};
-
-// Re-export core types from stroop-bytecode for convenience
-pub use stroop_bytecode::{CompiledModule, FuncType, Import, Instruction, Span, ValueType};
+pub use stroop_assembly::Opcode;
 
 /// Convenience function to parse a string into an expression AST.
 ///
 /// # Example
 ///
 /// ```rust
-/// use stroop_text_assembly::parse;
+/// use stroop_assembly_text::parse;
 ///
 /// let expr = parse("(i32.const 42)").unwrap();
 /// ```
@@ -54,7 +50,7 @@ pub fn parse(input: &str) -> Result<Expr, Error> {
 /// # Example
 ///
 /// ```rust
-/// use stroop_text_assembly::parse_all;
+/// use stroop_assembly_text::parse_all;
 ///
 /// let exprs = parse_all("(i32.const 1) (i32.const 2)").unwrap();
 /// assert_eq!(exprs.len(), 2);
@@ -73,7 +69,7 @@ pub fn parse_all(input: &str) -> Result<Vec<Expr>, Error> {
 /// # Example
 ///
 /// ```rust
-/// use stroop_text_assembly::parse_module;
+/// use stroop_assembly_text::parse_module;
 ///
 /// let module = parse_module(r#"
 ///     (module
@@ -131,6 +127,7 @@ mod tests {
 mod integration_tests {
     use super::*;
     use stroop_vm::{BytecodeVm, Value};
+    use stroop_vm_bytecode::{FuncType, ValueType};
 
     type TestResult = Result<(), Box<dyn std::error::Error>>;
 

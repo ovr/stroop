@@ -1,7 +1,8 @@
 use codspeed_criterion_compat::{Criterion, SamplingMode, criterion_group, criterion_main};
 use std::time::Duration;
-use stroop_text_assembly::{FuncType, ValueType, compile_module, parse_module};
+use stroop_assembly_text::{compile_module, parse_module};
 use stroop_vm::BytecodeVm;
+use stroop_vm_bytecode::{FuncType, ValueType};
 
 fn bench_factorial(c: &mut Criterion) {
     let source = include_str!("../../../examples/bench.sat");

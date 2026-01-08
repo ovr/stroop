@@ -1,12 +1,13 @@
 [package]
-name = "stroop-text-assembly"
+name = "stroop-assembly-text"
 description = "SAT (Stroop Assembly Text) parser"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 
 [dependencies]
-stroop-bytecode = { path = "../stroop-bytecode" }
+stroop-assembly = { path = "../stroop-assembly" }
+stroop-vm-bytecode = { path = "../stroop-vm-bytecode" }
 indexmap = "2"
 
 [dev-dependencies]

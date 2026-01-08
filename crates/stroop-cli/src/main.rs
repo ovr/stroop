@@ -5,8 +5,9 @@ use std::fs;
 use std::process;
 use std::time::Instant;
 
-use stroop_text_assembly::{CompiledModule, FuncType, ValueType, compile_module, parse_module};
+use stroop_assembly_text::{compile_module, parse_module};
 use stroop_vm::BytecodeVm;
+use stroop_vm_bytecode::{CompiledModule, FuncType, ValueType};
 
 fn main() {
     let args: Vec<String> = env::args().collect();

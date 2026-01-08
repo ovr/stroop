@@ -1,4 +1,4 @@
-use stroop_text_assembly::{compile_module, parse_module};
+use stroop_assembly_text::{compile_module, parse_module};
 
 type TestResult = Result<(), Box<dyn std::error::Error>>;
 

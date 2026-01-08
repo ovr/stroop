@@ -659,25 +659,30 @@ dependencies = [
 ]
 
 [[package]]
-name = "stroop-bytecode"
+name = "stroop-assembly"
 version = "0.1.0"
+dependencies = [
+ "stroop-vm-bytecode",
+]
+
+[[package]]
+name = "stroop-assembly-text"
+version = "0.1.0"
+dependencies = [
+ "indexmap",
+ "insta",
+ "stroop-assembly",
+ "stroop-vm",
+ "stroop-vm-bytecode",
+]
 
 [[package]]
 name = "stroop-cli"
 version = "0.1.0"
 dependencies = [
- "stroop-text-assembly",
+ "stroop-assembly-text",
  "stroop-vm",
-]
-
-[[package]]
-name = "stroop-text-assembly"
-version = "0.1.0"
-dependencies = [
- "indexmap",
- "insta",
- "stroop-bytecode",
- "stroop-vm",
+ "stroop-vm-bytecode",
 ]
 
 [[package]]
@@ -685,9 +690,13 @@ name = "stroop-vm"
 version = "0.1.0"
 dependencies = [
  "codspeed-criterion-compat",
- "stroop-bytecode",
- "stroop-text-assembly",
+ "stroop-assembly-text",
+ "stroop-vm-bytecode",
 ]
+
+[[package]]
+name = "stroop-vm-bytecode"
+version = "0.1.0"
 
 [[package]]
 name = "syn"

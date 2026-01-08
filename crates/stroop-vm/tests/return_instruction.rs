@@ -1,7 +1,7 @@
 //! Tests for the Return instruction.
 
-use stroop_bytecode::{CompiledModule, ConstPoolValue, Instruction};
 use stroop_vm::{BytecodeVm, RuntimeError, Value};
+use stroop_vm_bytecode::{CompiledModule, ConstPoolValue, Instruction};
 
 fn run_instructions(instructions: Vec<Instruction>) -> Result<Value, RuntimeError> {
     let module = CompiledModule {
@@ -45,7 +45,10 @@ fn test_return_i32() -> Result<(), RuntimeError> {
 #[test]
 fn test_return_i32_negative() -> Result<(), RuntimeError> {
     let result = run_instructions(vec![
-        Instruction::LoadConstI32 { dst: 0, value: -123 },
+        Instruction::LoadConstI32 {
+            dst: 0,
+            value: -123,
+        },
         Instruction::Return { src: 0 },
     ])?;
     assert_eq!(result.as_i32(), -123);
@@ -68,7 +71,10 @@ fn test_return_i64() -> Result<(), RuntimeError> {
 #[test]
 fn test_return_f32() -> Result<(), RuntimeError> {
     let result = run_instructions(vec![
-        Instruction::LoadConstF32 { dst: 3, value: 3.14 },
+        Instruction::LoadConstF32 {
+            dst: 3,
+            value: 3.14,
+        },
         Instruction::Return { src: 3 },
     ])?;
     assert!((result.as_f32() - 3.14).abs() < 0.001);
@@ -99,7 +105,10 @@ fn test_return_from_different_registers() -> Result<(), RuntimeError> {
 
     // Return from register 255
     let result = run_instructions(vec![
-        Instruction::LoadConstI32 { dst: 255, value: 200 },
+        Instruction::LoadConstI32 {
+            dst: 255,
+            value: 200,
+        },
         Instruction::Return { src: 255 },
     ])?;
     assert_eq!(result.as_i32(), 200);
@@ -112,7 +121,11 @@ fn test_return_arithmetic_result() -> Result<(), RuntimeError> {
     let result = run_instructions(vec![
         Instruction::LoadConstI32 { dst: 1, value: 10 },
         Instruction::LoadConstI32 { dst: 2, value: 32 },
-        Instruction::I32Add { dst: 3, lhs: 1, rhs: 2 },
+        Instruction::I32Add {
+            dst: 3,
+            lhs: 1,
+            rhs: 2,
+        },
         Instruction::Return { src: 3 },
     ])?;
     assert_eq!(result.as_i32(), 42);

@@ -1,5 +1,5 @@
-use crate::opcode::Opcode;
-use stroop_bytecode::{FuncType, Function, Import, Span, ValueType};
+use stroop_assembly::Opcode;
+use stroop_vm_bytecode::{FuncType, Function, Import, Span, ValueType};
 
 /// Constant value for const expressions.
 #[derive(Debug, Clone, PartialEq)]

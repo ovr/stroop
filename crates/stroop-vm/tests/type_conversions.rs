@@ -1,7 +1,7 @@
 //! Tests for type conversion instructions.
 
-use stroop_bytecode::{CompiledModule, ConstPoolValue, Instruction};
 use stroop_vm::{BytecodeVm, RuntimeError, Value};
+use stroop_vm_bytecode::{CompiledModule, ConstPoolValue, Instruction};
 
 /// Helper to run a sequence of instructions and get the result from register 0.
 fn run_instructions(instructions: Vec<Instruction>) -> Result<Value, RuntimeError> {

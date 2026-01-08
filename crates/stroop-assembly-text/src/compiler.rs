@@ -3,8 +3,8 @@
 use indexmap::IndexMap;
 
 use crate::ast::{ConstValue, Expr, Module};
-use crate::opcode::Opcode;
-use stroop_bytecode::{Addr32, CompiledModule, ConstPoolId, ConstPoolValue, Instruction};
+use stroop_assembly::Opcode;
+use stroop_vm_bytecode::{Addr32, CompiledModule, ConstPoolId, ConstPoolValue, Instruction};
 
 /// Compile-time label for control flow resolution.
 #[derive(Debug, Clone, Copy)]

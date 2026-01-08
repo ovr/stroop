@@ -1,6 +1,6 @@
 //! Runtime values for the Stroop VM.
 
-use stroop_bytecode::ValueType;
+use stroop_vm_bytecode::ValueType;
 
 /// A runtime value that can hold any of the supported types.
 #[derive(Debug, Clone, Copy, PartialEq)]

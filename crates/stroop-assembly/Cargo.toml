@@ -1,0 +1,9 @@
+[package]
+name = "stroop-assembly"
+description = "SAT opcodes used as high-level IR"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+stroop-vm-bytecode = { path = "../stroop-vm-bytecode" }

@@ -1,6 +1,6 @@
 //! Runtime errors for the Stroop VM.
 
-use stroop_bytecode::ValueType;
+use stroop_vm_bytecode::ValueType;
 
 /// Runtime error during VM execution.
 #[derive(Debug, Clone, PartialEq)]

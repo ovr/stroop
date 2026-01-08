@@ -1,4 +1,4 @@
-use stroop_bytecode::ValueType;
+use stroop_vm_bytecode::ValueType;
 
 /// Single-byte opcodes for the bytecode instruction set.
 /// Follows WebAssembly encoding conventions where applicable.

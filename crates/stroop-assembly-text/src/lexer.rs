@@ -1,7 +1,7 @@
 use crate::error::{LexError, SourceLocation};
 
-// Re-export Span from stroop-bytecode
-pub use stroop_bytecode::Span;
+// Re-export Span from stroop-vm-bytecode
+pub use stroop_vm_bytecode::Span;
 
 /// Token types for the S-expression lexer.
 #[derive(Debug, Clone, PartialEq)]

@@ -8,8 +8,9 @@ edition = "2024"
 license = "MIT"
 
 [workspace.dependencies]
-stroop-bytecode = { path = "crates/stroop-bytecode" }
-stroop-text-assembly = { path = "crates/stroop-text-assembly" }
+stroop-assembly = { path = "crates/stroop-assembly" }
+stroop-vm-bytecode = { path = "crates/stroop-vm-bytecode" }
+stroop-assembly-text = { path = "crates/stroop-assembly-text" }
 stroop-vm = { path = "crates/stroop-vm" }
 stroop-cli = { path = "crates/stroop-cli" }
 

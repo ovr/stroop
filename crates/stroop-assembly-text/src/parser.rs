@@ -1,9 +1,9 @@
 use crate::ast::{BlockType, ConstValue, Expr, Module};
 use crate::error::{ParseError, SourceLocation};
 use crate::lexer::{Lexer, Span, Token, TokenKind};
-use crate::opcode::Opcode;
 use std::collections::HashMap;
-use stroop_bytecode::{FuncType, Function, Import, ValueType};
+use stroop_assembly::Opcode;
+use stroop_vm_bytecode::{FuncType, Function, Import, ValueType};
 
 /// Recursive descent parser for S-expression syntax.
 pub struct Parser<'a> {
@@ -1304,7 +1304,7 @@ impl<'a> ModuleParser<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::opcode::Opcode;
+    use stroop_assembly::Opcode;
 
     fn parse(input: &str) -> Result<Expr, ParseError> {
         Parser::new(input)?.parse_expr()

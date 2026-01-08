@@ -6,10 +6,10 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-stroop-bytecode = { path = "../stroop-bytecode" }
+stroop-vm-bytecode = { path = "../stroop-vm-bytecode" }
 
 [dev-dependencies]
-stroop-text-assembly = { path = "../stroop-text-assembly" }
+stroop-assembly-text = { path = "../stroop-assembly-text" }
 codspeed-criterion-compat = "4"
 
 [[bench]]

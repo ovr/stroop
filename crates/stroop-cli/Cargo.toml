@@ -10,5 +10,6 @@ name = "stroop"
 path = "src/main.rs"
 
 [dependencies]
-stroop-text-assembly.workspace = true
+stroop-assembly-text.workspace = true
 stroop-vm.workspace = true
+stroop-vm-bytecode.workspace = true

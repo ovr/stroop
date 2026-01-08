@@ -3,7 +3,7 @@
 use crate::error::RuntimeError;
 use crate::value::Value;
 use std::ops::{Index, IndexMut};
-use stroop_bytecode::{CompiledModule, FuncType, Instruction};
+use stroop_vm_bytecode::{CompiledModule, FuncType, Instruction};
 
 /// Host function that can be called from the VM.
 pub type HostFn = Box<dyn Fn(&[Value]) -> Result<Option<Value>, RuntimeError>>;

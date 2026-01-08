@@ -20,8 +20,9 @@ cargo run -p stroop-cli      # Run the CLI
 
 ```
 crates/
-  stroop-bytecode/       # Bytecode definitions and encoding
-  stroop-text-assembly/  # SAT (Stroop Assembly Text) parser
+  stroop-assembly/       # SAT opcodes (high-level IR)
+  stroop-vm-bytecode/    # Low-level bytecode for VM
+  stroop-assembly-text/  # SAT (Stroop Assembly Text) parser
   stroop-vm/             # Virtual machine implementation
   stroop-cli/            # Command-line interface (binary: stroop)
 examples/                # Example .sat assembly files

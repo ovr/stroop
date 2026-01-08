@@ -1,6 +1,6 @@
 [package]
-name = "stroop-bytecode"
-description = "Bytecode definitions and encoding"
+name = "stroop-vm-bytecode"
+description = "Low-level bytecode for Stroop VM"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
