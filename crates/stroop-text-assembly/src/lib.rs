@@ -207,4 +207,40 @@ mod integration_tests {
         assert_eq!(result, Some(Value::I32(2)));
         Ok(())
     }
+
+    #[test]
+    fn test_return_i32() -> TestResult {
+        let result = run_module("(module (return (i32.const 42)))")?;
+        assert_eq!(result, Some(Value::I32(42)));
+        Ok(())
+    }
+
+    #[test]
+    fn test_return_expression() -> TestResult {
+        let result = run_module("(module (return (i32.add (i32.const 10) (i32.const 32))))")?;
+        assert_eq!(result, Some(Value::I32(42)));
+        Ok(())
+    }
+
+    #[test]
+    fn test_return_f64() -> TestResult {
+        let result = run_module("(module (return (f64.const 3.14)))")?;
+        match result {
+            Some(Value::F64(v)) => assert!((v - 3.14).abs() < 0.0001),
+            _ => panic!("expected f64"),
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_return_local() -> TestResult {
+        let result = run_module(
+            r#"(module
+                (local.set 0 (i32.const 100))
+                (return (local.get 0))
+            )"#,
+        )?;
+        assert_eq!(result, Some(Value::I32(100)));
+        Ok(())
+    }
 }

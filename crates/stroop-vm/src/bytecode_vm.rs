@@ -853,6 +853,10 @@ impl BytecodeVm {
                     pc += 1;
                 }
 
+                Instruction::Return { src } => {
+                    return Ok(Some(self.regs[src]));
+                }
+
                 Instruction::Halt => break,
             }
         }

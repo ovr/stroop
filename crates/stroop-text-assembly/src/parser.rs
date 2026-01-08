@@ -158,6 +158,7 @@ impl<'a> Parser<'a> {
                 else_body,
                 span,
             },
+            Expr::Return { value, .. } => Expr::Return { value, span },
         }
     }
 
@@ -175,6 +176,7 @@ impl<'a> Parser<'a> {
             "reg.get" => return self.parse_reg_get(span),
             "reg.set" => return self.parse_reg_set(span),
             "reg.tee" => return self.parse_reg_tee(span),
+            "return" => return self.parse_return(span),
             _ => {}
         }
 
@@ -356,6 +358,15 @@ impl<'a> Parser<'a> {
         let value = self.parse_expr()?;
         Ok(Expr::RegTee {
             index,
+            value: Box::new(value),
+            span,
+        })
+    }
+
+    /// Parse (return <expr>).
+    fn parse_return(&mut self, span: Span) -> Result<Expr, ParseError> {
+        let value = self.parse_expr()?;
+        Ok(Expr::Return {
             value: Box::new(value),
             span,
         })
@@ -965,6 +976,7 @@ impl<'a> ModuleParser<'a> {
                 else_body,
                 span,
             },
+            Expr::Return { value, .. } => Expr::Return { value, span },
         }
     }
 
@@ -987,6 +999,7 @@ impl<'a> ModuleParser<'a> {
             "br" => return self.parse_br(span),
             "br_if" => return self.parse_br_if(span),
             "if" => return self.parse_if(span),
+            "return" => return self.parse_return(span),
             _ => {}
         }
 
@@ -1274,6 +1287,15 @@ impl<'a> ModuleParser<'a> {
             condition: Box::new(condition),
             then_body,
             else_body,
+            span,
+        })
+    }
+
+    /// Parse (return <expr>).
+    fn parse_return(&mut self, span: Span) -> Result<Expr, ParseError> {
+        let value = self.parse_expr()?;
+        Ok(Expr::Return {
+            value: Box::new(value),
             span,
         })
     }
